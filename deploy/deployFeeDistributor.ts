@@ -1,5 +1,8 @@
 import { grantRoleIfNotGranted } from "../utils/role";
 import { createDeployFunction } from "../utils/deploy";
+// --- MPD Reward Wiring Start ---
+import { getRewardTokenAddress, getEsRewardTokenAddress, isMpdSystemConfigured } from "../utils/tokenAdapter";
+// --- MPD Reward Wiring End ---
 
 const constructorContracts = [
   "RoleStore",
@@ -19,10 +22,28 @@ const func = createDeployFunction({
     let gmxAddress = feeDistributorConfig.gmx;
     let esGmxAddress = feeDistributorConfig.esGmx;
     let wntAddress = feeDistributorConfig.wnt;
+
+    // --- MPD Reward Wiring Start ---
+    // Prefer MPD addresses if configured, fall back to GMX addresses
+    if (isMpdSystemConfigured()) {
+      console.log("[FeeDistributor] Using MPD token addresses");
+      gmxAddress = getRewardTokenAddress(gmxAddress);
+      esGmxAddress = getEsRewardTokenAddress(esGmxAddress);
+    }
+    // --- MPD Reward Wiring End ---
+
     if (network.name === "hardhat") {
       const tokens = await hre.gmx.getTokens();
-      gmxAddress = tokens.GMX.address;
-      esGmxAddress = tokens.ESGMX.address;
+      // --- MPD Reward Wiring Start ---
+      // For hardhat network, prefer MPD if configured
+      if (isMpdSystemConfigured()) {
+        gmxAddress = getRewardTokenAddress(tokens.GMX?.address);
+        esGmxAddress = getEsRewardTokenAddress(tokens.ESGMX?.address);
+      } else {
+        gmxAddress = tokens.GMX.address;
+        esGmxAddress = tokens.ESGMX.address;
+      }
+      // --- MPD Reward Wiring End ---
       wntAddress = tokens.WETH.address;
     }
     if (!gmxAddress) {
