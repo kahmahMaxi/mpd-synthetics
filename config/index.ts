@@ -15,6 +15,9 @@ import { isExistingMainnetDeployment } from "./chains";
 import layerZeroEndpointConfig from "./layerZero";
 import feeDistributorConfig from "./feeDistributor";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
+// --- MPD Integration Start ---
+import { loadMpdConfig, getMpdTokenAddress, isMpdConfigured } from "../utils/mpdTokenAdapter";
+// --- MPD Integration End ---
 
 extendEnvironment(async (hre: HardhatRuntimeEnvironment) => {
   // extend hre context with gmx domain data
@@ -32,5 +35,10 @@ extendEnvironment(async (hre: HardhatRuntimeEnvironment) => {
     isExistingMainnetDeployment: isExistingMainnetDeployment(hre),
     getLayerZeroEndpoint: _.memoize(async () => layerZeroEndpointConfig(hre)),
     getFeeDistributor: _.memoize(async () => feeDistributorConfig(hre)),
+    // --- MPD Integration Start ---
+    getMpdConfig: _.memoize(async () => loadMpdConfig()),
+    getMpdTokenAddress: (key: string) => getMpdTokenAddress(key),
+    isMpdConfigured: () => isMpdConfigured(),
+    // --- MPD Integration End ---
   };
 });
