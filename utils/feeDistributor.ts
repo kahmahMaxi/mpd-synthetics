@@ -9,6 +9,14 @@ export const feeGlpTrackerKey = hashString("FEE_GLP_TRACKER");
 export const chainlinkKey = hashString("CHAINLINK");
 export const esGmxVesterKey = hashString("ESGMX_VESTER");
 
+// --- MPD Integration Start ---
+// MPD Token Fee Distributor Keys
+export const mpdKey = hashString("MPD");
+export const extendedMpdTrackerKey = hashString("EXTENDED_MPD_TRACKER");
+export const feeMlpTrackerKey = hashString("FEE_MLP_TRACKER");
+export const esMpdVesterKey = hashString("ESMPD_VESTER");
+// --- MPD Integration End ---
+
 const SECONDS_IN_DAY = 86400;
 const TARGET_OFFSET_SECONDS = 60;
 

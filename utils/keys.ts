@@ -344,6 +344,24 @@ export const CONTRIBUTOR_LAST_PAYMENT_AT = hashString("CONTRIBUTOR_LAST_PAYMENT_
 export const CONTRIBUTOR_ACCOUNT_LIST = hashString("CONTRIBUTOR_ACCOUNT_LIST");
 export const CONTRIBUTOR_TOKEN_AMOUNT = hashString("CONTRIBUTOR_TOKEN_AMOUNT");
 
+// --- MPD Integration Start ---
+// MPD Token System Keys
+export const MPD_TOKEN = hashString("MPD_TOKEN");
+export const ES_MPD_TOKEN = hashString("ES_MPD_TOKEN");
+export const MPD_VESTER = hashString("MPD_VESTER");
+
+// MPD Fee Distributor Keys (parallel to GMX keys)
+export const BUYBACK_MPD_FACTOR = hashString("BUYBACK_MPD_FACTOR");
+export const FEE_DISTRIBUTOR_MAX_REFERRAL_REWARDS_ESMPD_AMOUNT = hashString(
+  "FEE_DISTRIBUTOR_MAX_REFERRAL_REWARDS_ESMPD_AMOUNT"
+);
+export const FEE_DISTRIBUTOR_MPD_PRICE = hashString("FEE_DISTRIBUTOR_MPD_PRICE");
+export const FEE_DISTRIBUTOR_FEE_AMOUNT_MPD = hashString("FEE_DISTRIBUTOR_FEE_AMOUNT_MPD");
+export const FEE_DISTRIBUTOR_TOTAL_FEE_AMOUNT_MPD = hashString("FEE_DISTRIBUTOR_TOTAL_FEE_AMOUNT_MPD");
+export const FEE_DISTRIBUTOR_STAKED_MPD = hashString("FEE_DISTRIBUTOR_STAKED_MPD");
+export const FEE_DISTRIBUTOR_TOTAL_STAKED_MPD = hashString("FEE_DISTRIBUTOR_TOTAL_STAKED_MPD");
+// --- MPD Integration End ---
+
 export function accountDepositListKey(account) {
   return hashData(["bytes32", "address"], [ACCOUNT_DEPOSIT_LIST, account]);
 }
