@@ -6,6 +6,9 @@ import { getMarketTokenAddress, DEFAULT_MARKET_TYPE } from "./market";
 import { getSyntheticTokenAddress } from "./token";
 import { getGlvAddress } from "./glv";
 import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
+// --- MPD Reward Wiring Start ---
+import { getMpdAddress, getEsMpdAddress, getVesterAddress, isMpdSystemConfigured } from "./tokenAdapter";
+// --- MPD Reward Wiring End ---
 
 async function setup() {
   await hre.deployments.fixture();
@@ -39,6 +42,14 @@ async function setup() {
 
   const gmx = await hre.ethers.getContract("GMX");
   const esGmx = await hre.ethers.getContract("ESGMX");
+
+  // --- MPD Reward Wiring Start ---
+  // MPD token references (addresses from config if available)
+  const mpdAddress = getMpdAddress();
+  const esMpdAddress = getEsMpdAddress();
+  const vesterAddress = getVesterAddress();
+  const mpdConfigured = isMpdSystemConfigured();
+  // --- MPD Reward Wiring End ---
 
   const wbtc = await hre.ethers.getContract("WBTC");
   const sol = { address: getSyntheticTokenAddress(hre.network.config.chainId, "SOL") };
@@ -357,6 +368,12 @@ async function setup() {
       wnt,
       gmx,
       esGmx,
+      // --- MPD Reward Wiring Start ---
+      mpdAddress,
+      esMpdAddress,
+      vesterAddress,
+      mpdConfigured,
+      // --- MPD Reward Wiring End ---
       wbtc,
       sol,
       usdc,
