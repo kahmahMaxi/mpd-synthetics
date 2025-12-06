@@ -781,6 +781,13 @@ async function validatePerpConfig({
   }
 
   console.log("validatePerpConfig", indexTokenSymbol);
+  
+  // Skip validation for hardhat and localhost networks as they don't have recommended configs
+  if (hre.network.name === "hardhat" || hre.network.name === "localhost") {
+    console.log(`Skipping perp config validation for ${hre.network.name} network`);
+    return;
+  }
+
   const recommendedPerpConfig =
     recommendedMarketConfig[hre.network.name][`${indexTokenSymbol}:${longTokenSymbol}:${shortTokenSymbol}`] ??
     recommendedMarketConfig[hre.network.name][indexTokenSymbol];
@@ -1109,6 +1116,12 @@ async function validateSwapConfig({
   dataStore,
   errors,
 }) {
+  // Skip validation for hardhat and localhost networks as they don't have recommended configs
+  if (hre.network.name === "hardhat" || hre.network.name === "localhost") {
+    console.log(`Skipping swap config validation for ${hre.network.name} network`);
+    return;
+  }
+
   const isStablecoinMarket = stablecoinSymbols[longTokenSymbol] && stablecoinSymbols[shortTokenSymbol];
 
   let recommendedSwapConfig;

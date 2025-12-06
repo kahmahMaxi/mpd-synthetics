@@ -357,7 +357,7 @@ const getConfigItems = async (generalConfig, oracleConfig) => {
     label: `isRelayFeeExcluded ${layerZeroProvider.address}`,
   });
 
-  if (network.name != "hardhat") {
+  if (network.name != "hardhat" && network.name != "localhost") {
     for (const [multichainProvider, enabled] of Object.entries(generalConfig.multichainProviders)) {
       configItems.push({
         type: "bool",
