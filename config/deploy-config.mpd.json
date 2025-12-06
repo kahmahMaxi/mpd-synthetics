@@ -1,0 +1,257 @@
+{
+  "source": "C:\\Users\\kamal\\Documents\\Kahmah\\doings\\dapp\\mpd-dex\\mpd-token\\deployments\\local.json",
+  "generatedAt": "2025-12-05T22:11:34.588Z",
+  "network": "localhost",
+  "tokens": {
+    "governanceToken": {
+      "symbol": "MPD",
+      "address": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+      "description": "MPD governance token (replaces GMX)"
+    },
+    "escrowedToken": {
+      "symbol": "esMPD",
+      "address": "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
+      "description": "Escrowed MPD token (replaces esGMX)"
+    },
+    "vester": {
+      "symbol": "Vester",
+      "address": "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0",
+      "description": "Vester contract for esMPD → MPD vesting"
+    }
+  },
+  "parameters": {
+    "vestingDuration": 31536000,
+    "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
+  },
+  "deploymentOrder": [
+    {
+      "contractName": "RoleStore",
+      "dependencies": [],
+      "tokenSubstitutions": [],
+      "roles": [
+        "ADMIN",
+        "CONTROLLER"
+      ]
+    },
+    {
+      "contractName": "DataStore",
+      "dependencies": [
+        "RoleStore"
+      ],
+      "tokenSubstitutions": [],
+      "roles": [
+        "CONTROLLER"
+      ]
+    },
+    {
+      "contractName": "EventEmitter",
+      "dependencies": [
+        "RoleStore"
+      ],
+      "tokenSubstitutions": [],
+      "roles": [
+        "CONTROLLER"
+      ]
+    },
+    {
+      "contractName": "DepositVault",
+      "dependencies": [
+        "RoleStore"
+      ],
+      "tokenSubstitutions": [],
+      "roles": [
+        "CONTROLLER"
+      ]
+    },
+    {
+      "contractName": "WithdrawalVault",
+      "dependencies": [
+        "RoleStore"
+      ],
+      "tokenSubstitutions": [],
+      "roles": [
+        "CONTROLLER"
+      ]
+    },
+    {
+      "contractName": "OrderVault",
+      "dependencies": [
+        "RoleStore"
+      ],
+      "tokenSubstitutions": [],
+      "roles": [
+        "CONTROLLER"
+      ]
+    },
+    {
+      "contractName": "FeeDistributorVault",
+      "dependencies": [
+        "RoleStore"
+      ],
+      "tokenSubstitutions": [],
+      "roles": [
+        "CONTROLLER"
+      ]
+    },
+    {
+      "contractName": "Oracle",
+      "dependencies": [
+        "RoleStore",
+        "OracleStore"
+      ],
+      "tokenSubstitutions": [],
+      "roles": [
+        "CONTROLLER"
+      ]
+    },
+    {
+      "contractName": "MarketFactory",
+      "dependencies": [
+        "RoleStore",
+        "DataStore",
+        "EventEmitter"
+      ],
+      "tokenSubstitutions": [],
+      "roles": [
+        "CONTROLLER",
+        "MARKET_KEEPER"
+      ]
+    },
+    {
+      "contractName": "DepositHandler",
+      "dependencies": [
+        "RoleStore",
+        "DataStore",
+        "EventEmitter",
+        "DepositVault",
+        "Oracle"
+      ],
+      "tokenSubstitutions": [],
+      "roles": [
+        "CONTROLLER"
+      ]
+    },
+    {
+      "contractName": "WithdrawalHandler",
+      "dependencies": [
+        "RoleStore",
+        "DataStore",
+        "EventEmitter",
+        "WithdrawalVault",
+        "Oracle"
+      ],
+      "tokenSubstitutions": [],
+      "roles": [
+        "CONTROLLER"
+      ]
+    },
+    {
+      "contractName": "OrderHandler",
+      "dependencies": [
+        "RoleStore",
+        "DataStore",
+        "EventEmitter",
+        "OrderVault",
+        "Oracle",
+        "SwapHandler"
+      ],
+      "tokenSubstitutions": [],
+      "roles": [
+        "CONTROLLER"
+      ]
+    },
+    {
+      "contractName": "FeeHandler",
+      "dependencies": [
+        "RoleStore",
+        "DataStore",
+        "EventEmitter"
+      ],
+      "tokenSubstitutions": [],
+      "roles": [
+        "CONTROLLER",
+        "FEE_KEEPER"
+      ]
+    },
+    {
+      "contractName": "FeeDistributor",
+      "dependencies": [
+        "RoleStore",
+        "DataStore",
+        "EventEmitter",
+        "FeeDistributorVault",
+        "FeeHandler"
+      ],
+      "tokenSubstitutions": [
+        {
+          "field": "gmxAddress",
+          "originalKey": "GMX",
+          "mpdKey": "MPDToken",
+          "mpdAddress": "0x5FbDB2315678afecb367f032d93F642f64180aa3"
+        },
+        {
+          "field": "esGmxAddress",
+          "originalKey": "esGMX",
+          "mpdKey": "esMPD",
+          "mpdAddress": "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"
+        }
+      ],
+      "roles": [
+        "CONTROLLER",
+        "FEE_KEEPER",
+        "FEE_DISTRIBUTION_KEEPER"
+      ]
+    },
+    {
+      "contractName": "ExchangeRouter",
+      "dependencies": [
+        "Router",
+        "RoleStore",
+        "DataStore",
+        "EventEmitter",
+        "DepositHandler",
+        "WithdrawalHandler",
+        "OrderHandler"
+      ],
+      "tokenSubstitutions": [],
+      "roles": [
+        "CONTROLLER",
+        "ROUTER_PLUGIN"
+      ]
+    },
+    {
+      "contractName": "GlvFactory",
+      "dependencies": [
+        "RoleStore",
+        "DataStore",
+        "EventEmitter"
+      ],
+      "tokenSubstitutions": [],
+      "roles": [
+        "CONTROLLER",
+        "GLV_KEEPER"
+      ]
+    },
+    {
+      "contractName": "GlvRouter",
+      "dependencies": [
+        "Router",
+        "RoleStore",
+        "DataStore",
+        "EventEmitter",
+        "GlvFactory"
+      ],
+      "tokenSubstitutions": [],
+      "roles": [
+        "CONTROLLER",
+        "ROUTER_PLUGIN"
+      ]
+    },
+    {
+      "contractName": "Reader",
+      "dependencies": [],
+      "tokenSubstitutions": [],
+      "roles": []
+    }
+  ]
+}
