@@ -1,0 +1,12 @@
+{
+  "symbol": "SOL",
+  "decimals": 18,
+  "address": "",
+  "oracleId": "SOL",
+  "priceFeedMultiplier": "10000000000000000000000000000000000",
+  "priceFeedDecimals": 8,
+  "tokenType": "volatile",
+  "isCollateralToken": true,
+  "isSwapToken": true
+}
+

@@ -1,0 +1,12 @@
+{
+  "symbol": "WBTC",
+  "decimals": 8,
+  "address": "",
+  "oracleId": "BTC",
+  "priceFeedMultiplier": "10000000000000000000000000000000000",
+  "priceFeedDecimals": 8,
+  "tokenType": "volatile",
+  "isCollateralToken": true,
+  "isSwapToken": true
+}
+
