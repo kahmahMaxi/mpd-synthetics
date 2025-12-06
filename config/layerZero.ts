@@ -7,6 +7,7 @@ export type LayerZeroEndpointConfig = {
 export default async function (hre: HardhatRuntimeEnvironment): Promise<LayerZeroEndpointConfig> {
   const config: { [network: string]: LayerZeroEndpointConfig } = {
     hardhat: {},
+    localhost: {},
     arbitrum: {
       endpoint: "0x1a44076050125825900e736c501f859c50fE728c",
     },

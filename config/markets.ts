@@ -426,7 +426,7 @@ const hardhatBaseMarketConfig: Partial<BaseMarketConfig> = {
   maxPnlFactorForAdl: decimalToFloat(45, 2), // 45%
   minPnlFactorAfterAdl: decimalToFloat(4, 1), // 40%
 
-  maxPnlFactorForDeposits: decimalToFloat(6, 1), // 60%
+  maxPnlFactorForDeposits: decimalToFloat(5, 1), // 50% - must match maxPnlFactorForTraders
   maxPnlFactorForWithdrawals: decimalToFloat(3, 1), // 30%
 
   positiveMaxPositionImpactFactor: decimalToFloat(2, 2), // 2%
@@ -5070,7 +5070,7 @@ function fillLongShortValues(market, key, longKey, shortKey) {
 export default async function (hre: HardhatRuntimeEnvironment) {
   const markets = config[hre.network.name];
   const tokens = await hre.gmx.getTokens();
-  const defaultMarketConfig = hre.network.name === "hardhat" ? hardhatBaseMarketConfig : baseMarketConfig;
+  const defaultMarketConfig = (hre.network.name === "hardhat" || hre.network.name === "localhost") ? hardhatBaseMarketConfig : baseMarketConfig;
   if (markets) {
     const seen = new Set<string>();
     for (const market of markets) {

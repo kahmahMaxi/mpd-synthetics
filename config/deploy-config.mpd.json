@@ -1,21 +1,21 @@
 {
   "source": "C:\\Users\\kamal\\Documents\\Kahmah\\doings\\dapp\\mpd-dex\\mpd-token\\deployments\\local.json",
-  "generatedAt": "2025-12-06T09:07:02.458Z",
+  "generatedAt": "2025-12-06T11:46:06.992Z",
   "network": "localhost",
   "tokens": {
     "governanceToken": {
       "symbol": "MPD",
-      "address": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+      "address": "0xA51c1fc2f0D1a1b8494Ed1FE312d7C3a78Ed91C0",
       "description": "MPD governance token (replaces GMX)"
     },
     "escrowedToken": {
       "symbol": "esMPD",
-      "address": "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
+      "address": "0x0DCd1Bf9A1b36cE34237eEaFef220932846BCD82",
       "description": "Escrowed MPD token (replaces esGMX)"
     },
     "vester": {
       "symbol": "Vester",
-      "address": "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0",
+      "address": "0x9A676e781A523b5d0C0e43731313A708CB607508",
       "description": "Vester contract for esMPD → MPD vesting"
     }
   },
@@ -28,21 +28,21 @@
       "type": "SET_ADDRESS",
       "key": "MPD_TOKEN",
       "keyHash": "keccak256(abi.encode(\"MPD_TOKEN\"))",
-      "value": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+      "value": "0xA51c1fc2f0D1a1b8494Ed1FE312d7C3a78Ed91C0",
       "description": "MPD governance token address (replaces GMX in reward system)"
     },
     {
       "type": "SET_ADDRESS",
       "key": "ES_MPD_TOKEN",
       "keyHash": "keccak256(abi.encode(\"ES_MPD_TOKEN\"))",
-      "value": "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
+      "value": "0x0DCd1Bf9A1b36cE34237eEaFef220932846BCD82",
       "description": "Escrowed MPD token address (replaces esGMX in reward system)"
     },
     {
       "type": "SET_ADDRESS",
       "key": "MPD_VESTER",
       "keyHash": "keccak256(abi.encode(\"MPD_VESTER\"))",
-      "value": "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0",
+      "value": "0x9A676e781A523b5d0C0e43731313A708CB607508",
       "description": "MPD Vester contract address for esMPD → MPD vesting"
     },
     {
@@ -217,13 +217,13 @@
           "field": "gmxAddress",
           "originalKey": "GMX",
           "mpdKey": "MPDToken",
-          "mpdAddress": "0x5FbDB2315678afecb367f032d93F642f64180aa3"
+          "mpdAddress": "0xA51c1fc2f0D1a1b8494Ed1FE312d7C3a78Ed91C0"
         },
         {
           "field": "esGmxAddress",
           "originalKey": "esGMX",
           "mpdKey": "esMPD",
-          "mpdAddress": "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"
+          "mpdAddress": "0x0DCd1Bf9A1b36cE34237eEaFef220932846BCD82"
         }
       ],
       "roles": [

@@ -1782,8 +1782,25 @@ const config: {
       decimals: 18,
       transferGasLimit: 200 * 1000,
       deploy: true,
+      priceFeed: {
+        decimals: 8,
+        heartbeatDuration: 24 * 60 * 60,
+        deploy: true,
+        initPrice: "500000000000",
+      },
     },
     GMX: {
+      decimals: 18,
+      transferGasLimit: 200 * 1000,
+      deploy: true,
+      priceFeed: {
+        decimals: 8,
+        heartbeatDuration: 24 * 60 * 60,
+        deploy: true,
+        initPrice: "10000000000",
+      },
+    },
+    ESGMX: {
       decimals: 18,
       transferGasLimit: 200 * 1000,
       deploy: true,
@@ -1797,11 +1814,23 @@ const config: {
       decimals: 6,
       transferGasLimit: 200 * 1000,
       deploy: true,
+      priceFeed: {
+        decimals: 8,
+        heartbeatDuration: 24 * 60 * 60,
+        deploy: true,
+        initPrice: "100000000",
+      },
     },
     USDT: {
       decimals: 6,
       transferGasLimit: 200 * 1000,
       deploy: true,
+      priceFeed: {
+        decimals: 8,
+        heartbeatDuration: 24 * 60 * 60,
+        deploy: true,
+        initPrice: "100000000",
+      },
     },
     SOL: {
       synthetic: true,
