@@ -412,16 +412,62 @@ task("dependencies", "Print dependencies for a contract")
     return graph;
   });
 
-task("deploy", "Deploy contracts", async (taskArgs: any, env, runSuper) => {
-  env.deployTags = taskArgs.tags ?? "";
-  if (
-    !(process.env.SKIP_AUTO_HANDLER_REDEPLOYMENT == "true" || process.env.SKIP_AUTO_HANDLER_REDEPLOYMENT == "false") &&
-    env.network.name != "hardhat"
-  ) {
-    throw new Error("SKIP_AUTO_HANDLER_REDEPLOYMENT flag is mandatory");
-  }
-  await runSuper();
-});
+// --- MPD Integration Start ---
+task("deploy", "Deploy contracts")
+  .addOptionalParam("mpdConfig", "Path to MPD deploy config (e.g., config/deploy-config.mpd.json)", undefined, types.string)
+  .setAction(async (taskArgs: any, env, runSuper) => {
+    env.deployTags = taskArgs.tags ?? "";
+    
+    // Load MPD config if provided
+    if (taskArgs.mpdConfig) {
+      const configPath = path.resolve(taskArgs.mpdConfig);
+      if (fs.existsSync(configPath)) {
+        console.log("[Deploy] Loading MPD config from:", configPath);
+        const mpdConfig = JSON.parse(fs.readFileSync(configPath, "utf8"));
+        (env as any).mpdDeployConfig = mpdConfig;
+        console.log("[Deploy] MPD Token:", mpdConfig.tokens?.governanceToken?.address || "Not configured");
+        console.log("[Deploy] esMPD Token:", mpdConfig.tokens?.escrowedToken?.address || "Not configured");
+        console.log("[Deploy] Vester:", mpdConfig.tokens?.vester?.address || "Not configured");
+      } else {
+        console.warn("[Deploy] Warning: MPD config not found at", configPath);
+      }
+    }
+    
+    if (
+      !(process.env.SKIP_AUTO_HANDLER_REDEPLOYMENT == "true" || process.env.SKIP_AUTO_HANDLER_REDEPLOYMENT == "false") &&
+      env.network.name != "hardhat"
+    ) {
+      throw new Error("SKIP_AUTO_HANDLER_REDEPLOYMENT flag is mandatory");
+    }
+    await runSuper();
+  });
+// --- MPD Integration End ---
+
+// --- MPD Integration Start ---
+task("mpd:generate-config", "Generate MPD deploy configuration from tokens.mpd.json")
+  .setAction(async (taskArgs, env) => {
+    const { execSync } = require("child_process");
+    console.log("[MPD] Generating deploy configuration...");
+    try {
+      execSync("npx ts-node scripts/generate-deploy-config-with-mpd.ts", { stdio: "inherit" });
+    } catch (error) {
+      console.error("[MPD] Failed to generate config:", error);
+      process.exit(1);
+    }
+  });
+
+task("mpd:dry-run", "Dry-run MPD deployment (no on-chain actions)")
+  .setAction(async (taskArgs, env) => {
+    const { execSync } = require("child_process");
+    console.log("[MPD] Running deployment dry-run...");
+    try {
+      execSync("npx ts-node scripts/dry-run-integrate-mpd.ts", { stdio: "inherit" });
+    } catch (error) {
+      console.error("[MPD] Dry-run failed:", error);
+      process.exit(1);
+    }
+  });
+// --- MPD Integration End ---
 
 task("collect-deployments", "Collect current deployments into the docs folder").setAction(collectDeployments);
 
