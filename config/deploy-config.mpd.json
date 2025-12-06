@@ -1,6 +1,6 @@
 {
   "source": "C:\\Users\\kamal\\Documents\\Kahmah\\doings\\dapp\\mpd-dex\\mpd-token\\deployments\\local.json",
-  "generatedAt": "2025-12-05T22:11:34.588Z",
+  "generatedAt": "2025-12-06T09:07:02.458Z",
   "network": "localhost",
   "tokens": {
     "governanceToken": {
@@ -23,6 +23,36 @@
     "vestingDuration": 31536000,
     "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
   },
+  "dataStoreInjections": [
+    {
+      "type": "SET_ADDRESS",
+      "key": "MPD_TOKEN",
+      "keyHash": "keccak256(abi.encode(\"MPD_TOKEN\"))",
+      "value": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+      "description": "MPD governance token address (replaces GMX in reward system)"
+    },
+    {
+      "type": "SET_ADDRESS",
+      "key": "ES_MPD_TOKEN",
+      "keyHash": "keccak256(abi.encode(\"ES_MPD_TOKEN\"))",
+      "value": "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
+      "description": "Escrowed MPD token address (replaces esGMX in reward system)"
+    },
+    {
+      "type": "SET_ADDRESS",
+      "key": "MPD_VESTER",
+      "keyHash": "keccak256(abi.encode(\"MPD_VESTER\"))",
+      "value": "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0",
+      "description": "MPD Vester contract address for esMPD → MPD vesting"
+    },
+    {
+      "type": "SET_UINT",
+      "key": "MPD_VESTING_DURATION",
+      "keyHash": "keccak256(abi.encode(\"MPD_VESTING_DURATION\"))",
+      "value": 31536000,
+      "description": "MPD vesting duration in seconds (default: 365 days)"
+    }
+  ],
   "deploymentOrder": [
     {
       "contractName": "RoleStore",

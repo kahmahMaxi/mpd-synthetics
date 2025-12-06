@@ -33,6 +33,14 @@ interface MPDConfig {
   };
 }
 
+interface DataStoreInjection {
+  type: "SET_ADDRESS" | "SET_UINT";
+  key: string;
+  keyHash: string;
+  value: string | number;
+  description: string;
+}
+
 interface DeployConfigMPD {
   // Source information
   source: string;
@@ -63,6 +71,9 @@ interface DeployConfigMPD {
     vestingDuration: number;
     deployer: string;
   };
+
+  // DataStore injections for MPD token addresses
+  dataStoreInjections: DataStoreInjection[];
 
   // Contract deployment order and config
   deploymentOrder: DeployStep[];
@@ -168,6 +179,8 @@ async function main() {
       deployer: mpdConfig.deployer || "",
     },
 
+    dataStoreInjections: buildDataStoreInjections(mpdConfig),
+
     deploymentOrder: buildDeploymentOrder(mpdConfig),
   };
 
@@ -183,11 +196,54 @@ async function main() {
   console.log("   esMPD Token:", deployConfig.tokens.escrowedToken.address);
   console.log("   Vester:", deployConfig.tokens.vester.address);
   console.log("   Vesting Duration:", deployConfig.parameters.vestingDuration, "seconds");
+  console.log("   DataStore Injections:", deployConfig.dataStoreInjections.length);
   console.log("   Deployment Steps:", deployConfig.deploymentOrder.length);
+
+  console.log("\n📦 DataStore Injections:");
+  for (const injection of deployConfig.dataStoreInjections) {
+    console.log(`   • ${injection.key}: ${injection.value}`);
+  }
 
   console.log("\n" + "=".repeat(70));
   console.log("Next: Run dry-run-integrate-mpd.ts to preview deployment");
   console.log("=".repeat(70));
+}
+
+/**
+ * Build DataStore injection tasks for MPD token addresses
+ * These are written to DataStore during deployment to wire the reward system
+ */
+function buildDataStoreInjections(mpdConfig: MPDConfig): DataStoreInjection[] {
+  return [
+    {
+      type: "SET_ADDRESS",
+      key: "MPD_TOKEN",
+      keyHash: "keccak256(abi.encode(\"MPD_TOKEN\"))",
+      value: mpdConfig.MPDToken,
+      description: "MPD governance token address (replaces GMX in reward system)",
+    },
+    {
+      type: "SET_ADDRESS",
+      key: "ES_MPD_TOKEN",
+      keyHash: "keccak256(abi.encode(\"ES_MPD_TOKEN\"))",
+      value: mpdConfig.esMPD,
+      description: "Escrowed MPD token address (replaces esGMX in reward system)",
+    },
+    {
+      type: "SET_ADDRESS",
+      key: "MPD_VESTER",
+      keyHash: "keccak256(abi.encode(\"MPD_VESTER\"))",
+      value: mpdConfig.Vester,
+      description: "MPD Vester contract address for esMPD → MPD vesting",
+    },
+    {
+      type: "SET_UINT",
+      key: "MPD_VESTING_DURATION",
+      keyHash: "keccak256(abi.encode(\"MPD_VESTING_DURATION\"))",
+      value: mpdConfig.vestingDuration || 31536000,
+      description: "MPD vesting duration in seconds (default: 365 days)",
+    },
+  ];
 }
 
 /**
