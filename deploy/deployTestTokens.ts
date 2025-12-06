@@ -10,7 +10,19 @@ const func = async ({ getNamedAccounts, deployments, gmx, network }: HardhatRunt
   const { deploy, log } = deployments;
   const { deployer } = await getNamedAccounts();
   const { getTokens } = gmx;
-  const tokens: Record<string, TokenConfig> = await getTokens();
+  
+  log("Loading tokens config...");
+  let tokens: Record<string, TokenConfig>;
+  try {
+    tokens = await getTokens();
+    log(`Loaded ${Object.keys(tokens).length} tokens`);
+    for (const [symbol, token] of Object.entries(tokens)) {
+      log(`Token ${symbol}: decimals=${token.decimals}, deploy=${token.deploy}, synthetic=${token.synthetic}`);
+    }
+  } catch (e) {
+    log(`Error loading tokens: ${e}`);
+    throw e;
+  }
 
   for (const [tokenSymbol, token] of Object.entries(tokens)) {
     if (token.synthetic || !token.deploy) {
@@ -21,6 +33,12 @@ const func = async ({ getNamedAccounts, deployments, gmx, network }: HardhatRunt
       console.warn("WARN: Deploying token on live network");
     }
 
+    // Skip tokens with undefined decimals
+    if (token.decimals === undefined) {
+      console.warn(`WARN: Skipping ${tokenSymbol} - decimals not defined`);
+      continue;
+    }
+
     const existingToken = await deployments.getOrNull(tokenSymbol);
     if (existingToken) {
       log(`Reusing ${tokenSymbol} at ${existingToken.address}`);
@@ -29,6 +47,7 @@ const func = async ({ getNamedAccounts, deployments, gmx, network }: HardhatRunt
       continue;
     }
 
+    log(`Deploying ${tokenSymbol} with decimals: ${token.decimals}`);
     const { address, newlyDeployed } = await deploy(tokenSymbol, {
       from: deployer,
       log: true,
@@ -38,7 +57,8 @@ const func = async ({ getNamedAccounts, deployments, gmx, network }: HardhatRunt
 
     tokens[tokenSymbol].address = address;
     if (newlyDeployed) {
-      if (token.wrappedNative && !network.live) {
+      // setBalance only works on in-process hardhat network, not localhost via RPC
+      if (token.wrappedNative && !network.live && network.name !== "localhost") {
         await setBalance(address, expandDecimals(1000, token.decimals));
       }
 
@@ -54,11 +74,14 @@ const func = async ({ getNamedAccounts, deployments, gmx, network }: HardhatRunt
       continue;
     }
 
-    await setUintIfDifferent(
-      keys.tokenTransferGasLimit(token.address!),
-      token.transferGasLimit,
-      `${tokenSymbol} transfer gas limit`
-    );
+    // Skip if transferGasLimit is not defined
+    if (token.transferGasLimit !== undefined) {
+      await setUintIfDifferent(
+        keys.tokenTransferGasLimit(token.address!),
+        token.transferGasLimit,
+        `${tokenSymbol} transfer gas limit`
+      );
+    }
   }
 
   const wrappedAddress = Object.values(tokens).find((token) => token.wrappedNative)?.address;
@@ -69,5 +92,5 @@ const func = async ({ getNamedAccounts, deployments, gmx, network }: HardhatRunt
 };
 
 func.tags = ["Tokens"];
-func.dependencies = ["DataStore"];
+func.dependencies = ["DataStore", "GrantDeployerRoles"];
 export default func;

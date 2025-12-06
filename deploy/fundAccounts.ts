@@ -11,7 +11,8 @@ const func = async ({ getNamedAccounts, deployments }: HardhatRuntimeEnvironment
 };
 
 func.skip = async ({ network }) => {
-  return network.live;
+  // Skip on live networks and localhost (setBalance only works on in-process hardhat network)
+  return network.live || network.name === "localhost";
 };
 func.tags = ["FundAccounts"];
 export default func;

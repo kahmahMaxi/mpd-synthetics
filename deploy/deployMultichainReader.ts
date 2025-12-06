@@ -9,7 +9,7 @@ const func = createDeployFunction({
   getDeployArgs: async ({ dependencyContracts, gmx, network, get }) => {
     const layerZeroConfig = await gmx.getLayerZeroEndpoint();
     let endpointAddress = layerZeroConfig.endpoint;
-    if (network.name === "hardhat") {
+    if (network.name === "hardhat" || network.name === "localhost") {
       const endpoint = await get("MockEndpointV2");
       endpointAddress = endpoint.address;
     }

@@ -32,7 +32,7 @@ const func = createDeployFunction({
     }
     // --- MPD Reward Wiring End ---
 
-    if (network.name === "hardhat") {
+    if (network.name === "hardhat" || network.name === "localhost") {
       const tokens = await hre.gmx.getTokens();
       // --- MPD Reward Wiring Start ---
       // For hardhat network, prefer MPD if configured

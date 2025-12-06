@@ -200,6 +200,7 @@ const config: HardhatUserConfig = {
       chainId: Number(process.env.FORK_ID) || 42161, // default to Arbitrum One
     },
     localhost: {
+      chainId: 31337,
       saveDeployments: true,
     },
     arbitrum: {
