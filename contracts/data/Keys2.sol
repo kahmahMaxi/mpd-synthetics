@@ -73,6 +73,31 @@ library Keys2 {
     // @dev key for factor used to determine amount of total V2 fees USD that are in WNT
     bytes32 public constant FEE_DISTRIBUTOR_V2_FEES_WNT_FACTOR = keccak256(abi.encode("FEE_DISTRIBUTOR_V2_FEES_WNT_FACTOR"));
 
+    // --- MPD Integration Start ---
+    // @dev key for MPD Token address (governance token, replaces GMX)
+    bytes32 public constant MPD_TOKEN = keccak256(abi.encode("MPD_TOKEN"));
+    // @dev key for escrowed MPD Token address (esMPD, replaces esGMX)
+    bytes32 public constant ES_MPD_TOKEN = keccak256(abi.encode("ES_MPD_TOKEN"));
+    // @dev key for MPD Vester contract address
+    bytes32 public constant MPD_VESTER = keccak256(abi.encode("MPD_VESTER"));
+    // @dev key for MPD vesting duration in seconds
+    bytes32 public constant MPD_VESTING_DURATION = keccak256(abi.encode("MPD_VESTING_DURATION"));
+    // @dev key for extended MPD tracker (staking tracker)
+    bytes32 public constant EXTENDED_MPD_TRACKER = keccak256(abi.encode("EXTENDED_MPD_TRACKER"));
+    // @dev key for FeeDistributor MPD fee amount for a given chain
+    bytes32 public constant FEE_DISTRIBUTOR_FEE_AMOUNT_MPD = keccak256(abi.encode("FEE_DISTRIBUTOR_FEE_AMOUNT_MPD"));
+    // @dev key for FeeDistributor total MPD fee amount for all chains combined
+    bytes32 public constant FEE_DISTRIBUTOR_TOTAL_FEE_AMOUNT_MPD = keccak256(abi.encode("FEE_DISTRIBUTOR_TOTAL_FEE_AMOUNT_MPD"));
+    // @dev key for FeeDistributor staked MPD for a given chain
+    bytes32 public constant FEE_DISTRIBUTOR_STAKED_MPD = keccak256(abi.encode("FEE_DISTRIBUTOR_STAKED_MPD"));
+    // @dev key for FeeDistributor total staked MPD for all chains combined
+    bytes32 public constant FEE_DISTRIBUTOR_TOTAL_STAKED_MPD = keccak256(abi.encode("FEE_DISTRIBUTOR_TOTAL_STAKED_MPD"));
+    // @dev key for FeeDistributor MPD price for reward calculations
+    bytes32 public constant FEE_DISTRIBUTOR_MPD_PRICE = keccak256(abi.encode("FEE_DISTRIBUTOR_MPD_PRICE"));
+    // @dev key for FeeDistributor max esMPD referral rewards amount
+    bytes32 public constant FEE_DISTRIBUTOR_MAX_REFERRAL_REWARDS_ESMPD_AMOUNT = keccak256(abi.encode("FEE_DISTRIBUTOR_MAX_REFERRAL_REWARDS_ESMPD_AMOUNT"));
+    // --- MPD Integration End ---
+
     // @dev key for the multichain peers mapping (peer address stored as bytes32)
     // @param readChannel the readChannel for which to retrieve the respective peer
     // @return key for multichain peers
@@ -164,4 +189,20 @@ library Keys2 {
     function feeDistributorReferralRewardsDepositedKey(address token) internal pure returns (bytes32) {
         return keccak256(abi.encode(FEE_DISTRIBUTOR_REFERRAL_REWARDS_DEPOSITED, token));
     }
+
+    // --- MPD Integration Start ---
+    // @dev key for the FeeDistributor MPD fee amount for a specific chain
+    // @param chainId the chainId for which to retrieve fee amount MPD
+    // @return key for FeeDistributor fee amount MPD
+    function feeDistributorFeeAmountMpdKey(uint256 chainId) internal pure returns (bytes32) {
+        return keccak256(abi.encode(FEE_DISTRIBUTOR_FEE_AMOUNT_MPD, chainId));
+    }
+
+    // @dev key for the FeeDistributor staked MPD for a specific chain
+    // @param chainId the chainId for which to retrieve staked MPD
+    // @return key for FeeDistributor staked MPD
+    function feeDistributorStakedMpdKey(uint256 chainId) internal pure returns (bytes32) {
+        return keccak256(abi.encode(FEE_DISTRIBUTOR_STAKED_MPD, chainId));
+    }
+    // --- MPD Integration End ---
 }
