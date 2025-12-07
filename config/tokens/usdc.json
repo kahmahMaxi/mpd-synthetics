@@ -1,7 +1,7 @@
 {
   "symbol": "USDC",
   "decimals": 6,
-  "address": "",
+  "address": "0xCD8a1C3ba11CF5ECfa6267617243239504a98d90",
   "oracleId": "USDC",
   "priceFeedMultiplier": "10000000000000000000000000000000000000000000000",
   "priceFeedDecimals": 8,
@@ -9,4 +9,3 @@
   "isCollateralToken": true,
   "isSwapToken": true
 }
-
