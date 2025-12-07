@@ -13,6 +13,7 @@ import { OrderType, DecreasePositionSwapType } from "../utils/order";
 import { getPositionKey } from "../utils/position";
 import * as keys from "../utils/keys";
 import { getOracleParams } from "../utils/oracle";
+import { parseLogs, getEventDataValue } from "../utils/event";
 import {
   loadTokenConfig,
   loadMarketConfig,
@@ -195,12 +196,48 @@ async function main() {
   const createTx = await exchangeRouterContract.connect(testUser).createOrder(orderParams);
   const createReceipt = await createTx.wait();
 
-  // Extract order key from events
-  const orderCreatedEvent = createReceipt.events?.find((e: any) => e.event === "OrderCreated");
-  const orderKey = orderCreatedEvent?.args?.key;
+  // Extract order key from events using utility functions
+  const eventEmitter = await get("EventEmitter");
+  const eventEmitterContract = await hre.ethers.getContractAt("EventEmitter", eventEmitter.address);
+  
+  // Create a fixture-like object for parseLogs
+  const fixture = {
+    contracts: {
+      eventEmitter: eventEmitterContract,
+    },
+  };
+
+  const logs = parseLogs(fixture, createReceipt);
+  const orderKey = getEventDataValue(logs, "OrderCreated", "key");
 
   if (!orderKey) {
-    throw new Error("Order key not found in events");
+    // Fallback: try to get order key from OrderStore directly
+    const orderStore = await get("OrderStore");
+    const orderStoreContract = await hre.ethers.getContractAt("OrderStore", orderStore.address);
+    try {
+      const orderCount = await orderStoreContract.getOrderCount(testUser.address);
+      if (orderCount.gt(0)) {
+        const orderKeys = await orderStoreContract.getOrderKeys(testUser.address, 0, 1);
+        if (orderKeys.length > 0) {
+          const fallbackKey = orderKeys[0];
+          console.log(`⚠️  Order key extracted from OrderStore (fallback): ${fallbackKey}`);
+          console.log(`✅ Order created: ${fallbackKey}\n`);
+          // Use fallback key for execution
+          const executeOrderKey = fallbackKey;
+          // Continue with execution using fallback key
+          // (We'll need to update the orderKey variable reference below)
+          // For now, let's just throw an error to see what's happening
+          throw new Error(`Order key not found in events, but found in OrderStore: ${fallbackKey}. Please check event parsing.`);
+        }
+      }
+    } catch (e: any) {
+      if (e.message && e.message.includes("OrderStore")) {
+        throw e;
+      }
+      // Ignore other errors
+    }
+
+    throw new Error("Order key not found in events. Transaction may have failed.");
   }
 
   console.log(`✅ Order created: ${orderKey}\n`);
@@ -235,17 +272,18 @@ async function main() {
   const usdcOraclePrice = await chainlinkProviderContract.getOraclePrice(usdcAddress, "0x");
 
   console.log(`✅ Retrieved prices from ChainlinkPriceFeedProvider:`);
-  console.log(`   WETH: min=${formatUsd(wethOraclePrice.price.min)}, max=${formatUsd(wethOraclePrice.price.max)}`);
-  console.log(`   USDC: min=${formatUsd(usdcOraclePrice.price.min)}, max=${formatUsd(usdcOraclePrice.price.max)}\n`);
+  console.log(`   WETH: min=${wethOraclePrice.min.toString()}, max=${wethOraclePrice.max.toString()}`);
+  console.log(`   USDC: min=${usdcOraclePrice.min.toString()}, max=${usdcOraclePrice.max.toString()}`);
+  console.log(`   (Prices are in 30-decimal format)\n`);
 
   // Set prices in Oracle using setPrimaryPrice (requires CONTROLLER role)
   const wethPriceProps = {
-    min: wethOraclePrice.price.min,
-    max: wethOraclePrice.price.max,
+    min: wethOraclePrice.min,
+    max: wethOraclePrice.max,
   };
   const usdcPriceProps = {
-    min: usdcOraclePrice.price.min,
-    max: usdcOraclePrice.price.max,
+    min: usdcOraclePrice.min,
+    max: usdcOraclePrice.max,
   };
 
   await oracleContract.connect(deployer).setPrimaryPrice(wethAddress, wethPriceProps);
