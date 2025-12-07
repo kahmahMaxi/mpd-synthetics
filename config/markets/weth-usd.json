@@ -1,0 +1,11 @@
+{
+  "marketTokenSymbol": "WETH-USD",
+  "marketTokenName": "WETH / USD Market",
+  "indexTokenSymbol": "WETH",
+  "longTokenSymbol": "WETH",
+  "shortTokenSymbol": "USDC",
+  "reserveFactor": "0.85",
+  "maxCumulativeDeltaDiff": "0.02",
+  "tokenDecimals": 18
+}
+

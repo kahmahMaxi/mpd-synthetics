@@ -1,0 +1,17 @@
+{
+  "markets": [
+    "config/markets/eth-usd.json",
+    "config/markets/btc-usd.json",
+    "config/markets/sol-usd.json",
+    "config/markets/weth-usd.json"
+  ],
+  "collateralTokens": [
+    "config/tokens/usdc.json",
+    "config/tokens/weth.json",
+    "config/tokens/wbtc.json",
+    "config/tokens/sol.json"
+  ],
+  "generatedAt": "",
+  "network": ""
+}
+

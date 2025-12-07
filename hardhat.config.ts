@@ -416,6 +416,7 @@ task("dependencies", "Print dependencies for a contract")
 // --- MPD Integration Start ---
 task("deploy", "Deploy contracts")
   .addOptionalParam("mpdConfig", "Path to MPD deploy config (e.g., config/deploy-config.mpd.json)", undefined, types.string)
+  .addOptionalParam("marketsConfig", "Path to markets deploy config (e.g., config/deploy-config.markets.json)", undefined, types.string)
   .setAction(async (taskArgs: any, env, runSuper) => {
     env.deployTags = taskArgs.tags ?? "";
     
@@ -431,6 +432,19 @@ task("deploy", "Deploy contracts")
         console.log("[Deploy] Vester:", mpdConfig.tokens?.vester?.address || "Not configured");
       } else {
         console.warn("[Deploy] Warning: MPD config not found at", configPath);
+      }
+    }
+
+    // Load markets config if provided
+    if (taskArgs.marketsConfig) {
+      const marketsConfigPath = path.resolve(taskArgs.marketsConfig);
+      if (fs.existsSync(marketsConfigPath)) {
+        console.log("[Deploy] Loading markets config from:", marketsConfigPath);
+        const marketsConfig = JSON.parse(fs.readFileSync(marketsConfigPath, "utf8"));
+        (env as any).marketsDeployConfig = marketsConfig;
+        console.log("[Deploy] Markets configured:", marketsConfig.markets?.length || 0);
+      } else {
+        console.warn("[Deploy] Markets config file not found:", marketsConfigPath);
       }
     }
     

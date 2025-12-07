@@ -1,0 +1,11 @@
+{
+  "marketTokenSymbol": "ETH-USD",
+  "marketTokenName": "ETH / USD Market",
+  "indexTokenSymbol": "WETH",
+  "longTokenSymbol": "WETH",
+  "shortTokenSymbol": "USDC",
+  "reserveFactor": "0.85",
+  "maxCumulativeDeltaDiff": "0.02",
+  "tokenDecimals": 18
+}
+
