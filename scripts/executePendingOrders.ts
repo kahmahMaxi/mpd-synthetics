@@ -65,6 +65,10 @@ async function main() {
     const orderKey = orderKeys[i];
     console.log(`\n[${i + 1}/${orderKeys.length}] Processing order: ${orderKey}`);
 
+    // Initialize variables for error handling
+    let orderTypeName = "Unknown";
+    let marketAddress = "Unknown";
+
     try {
       // Get order details
       const order = await readerContract.getOrder(dataStore.address, orderKey);
@@ -82,10 +86,10 @@ async function main() {
         8: "StopIncrease",
       };
       const orderType = Number(order.numbers.orderType);
-      const orderTypeName = orderTypeNames[orderType] || `Type${orderType}`;
+      orderTypeName = orderTypeNames[orderType] || `Type${orderType}`;
 
       // Get market address
-      const marketAddress = order.addresses.market;
+      marketAddress = order.addresses.market;
       
       console.log(`  Type: ${orderTypeName}`);
       console.log(`  Market: ${marketAddress}`);
@@ -204,9 +208,6 @@ async function main() {
         market: marketAddress,
         status: "SUCCESS",
       });
-      
-      // Update marketSymbol for summary
-      marketSymbol = marketAddress;
     } catch (error: any) {
       // Try to parse the error for better debugging
       let errorMessage = error.message;

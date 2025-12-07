@@ -10,6 +10,7 @@ import { parseArgs } from "util";
 
 interface PriceArgs {
   eth?: string;
+  weth?: string;
   btc?: string;
   sol?: string;
   usdc?: string;
@@ -51,12 +52,16 @@ async function main(taskArgs?: PriceArgs) {
       } else if (argv[i] === "--usdc" && i + 1 < argv.length) {
         args.usdc = argv[i + 1];
         i++;
+      } else if (argv[i] === "--weth" && i + 1 < argv.length) {
+        args.weth = argv[i + 1];
+        i++;
       }
     }
   }
   
   // Fallback to environment variables
   if (!args.eth) args.eth = process.env.ETH;
+  if (!args.weth) args.weth = process.env.WETH;
   if (!args.btc) args.btc = process.env.BTC;
   if (!args.sol) args.sol = process.env.SOL;
   if (!args.usdc) args.usdc = process.env.USDC;
@@ -64,8 +69,10 @@ async function main(taskArgs?: PriceArgs) {
   const prices: Array<{ symbol: string; feedName: string; price: string; price8Dec: string }> = [];
 
   // Update prices
-  if (args.eth) {
-    const price = parseFloat(args.eth);
+  // --eth and --weth both update WETH price feed
+  if (args.eth || args.weth) {
+    const priceValue = args.weth || args.eth;
+    const price = parseFloat(priceValue!);
     const price8Dec = Math.floor(price * 1e8).toString();
     await updatePrice("WETH", "WETHPriceFeed", price8Dec, price.toString());
     prices.push({ symbol: "WETH", feedName: "WETHPriceFeed", price: price.toString(), price8Dec });
@@ -94,9 +101,9 @@ async function main(taskArgs?: PriceArgs) {
 
   if (prices.length === 0) {
     console.log("⚠️  No prices provided. Usage:");
-    console.log("   npx hardhat run scripts/setOraclePrices.ts --network localhost --eth 2400 --btc 98000");
+    console.log("   npx hardhat run scripts/setOraclePrices.ts --network localhost --eth 2400 --weth 2000 --btc 98000");
     console.log("   or");
-    console.log("   npx hardhat oracle:set --eth 2400 --btc 98000 --sol 120 --usdc 1");
+    console.log("   npx hardhat oracle:set --eth 2400 --weth 2000 --btc 98000 --sol 120 --usdc 1");
     return;
   }
 

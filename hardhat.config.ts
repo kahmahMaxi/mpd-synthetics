@@ -487,6 +487,7 @@ task("mpd:dry-run", "Dry-run MPD deployment (no on-chain actions)")
 // --- Oracle Integration Start ---
 task("oracle:set", "Set oracle prices")
   .addOptionalParam("eth", "ETH price in USD", undefined, types.string)
+  .addOptionalParam("weth", "WETH price in USD", undefined, types.string)
   .addOptionalParam("btc", "BTC price in USD", undefined, types.string)
   .addOptionalParam("sol", "SOL price in USD", undefined, types.string)
   .addOptionalParam("usdc", "USDC price in USD", undefined, types.string)
