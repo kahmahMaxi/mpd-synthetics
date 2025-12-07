@@ -496,6 +496,18 @@ task("oracle:set", "Set oracle prices")
   });
 // --- Oracle Integration End ---
 
+// --- Keeper Tasks Start ---
+task("keepers:grant", "Grant keeper roles to deployer")
+  .setAction(async (taskArgs, env) => {
+    await env.run("run", { script: "scripts/grantKeeperRoles.ts" });
+  });
+
+task("orders:execute", "Execute all pending orders")
+  .setAction(async (taskArgs, env) => {
+    await env.run("run", { script: "scripts/executePendingOrders.ts" });
+  });
+// --- Keeper Tasks End ---
+
 task("collect-deployments", "Collect current deployments into the docs folder").setAction(collectDeployments);
 
 task("generate-deployment-docs", "Generate deployment documentation for all networks")
