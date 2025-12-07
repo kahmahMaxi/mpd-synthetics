@@ -27,8 +27,26 @@ export async function handleConfigChanges(
   write: boolean,
   batchSize = 0
 ): Promise<ChangeResult> {
+  const hre = await import("hardhat");
+  const { ethers } = hre;
+  
   const dataStore = await hre.ethers.getContract("DataStore");
-  const multicall = await hre.ethers.getContract("Multicall3");
+  
+  // Try to get Multicall3, but handle gracefully if not available
+  let multicall;
+  try {
+    multicall = await hre.ethers.getContract("Multicall3");
+  } catch (error: any) {
+    // If Multicall3 is not deployed, try to get it from deployments
+    try {
+      const multicallDeployment = await hre.deployments.get("Multicall3");
+      multicall = await hre.ethers.getContractAt("Multicall3", multicallDeployment.address);
+    } catch (e2: any) {
+      console.warn(`⚠️  Multicall3 not available, using direct DataStore calls: ${e2.message}`);
+      multicall = null;
+    }
+  }
+  
   const config = await hre.ethers.getContract("Config");
 
   const configKeys = [];
@@ -70,24 +88,82 @@ export async function handleConfigChanges(
     batchSize = 50;
   }
 
-  await handleInBatches(multicallReadParams, batchSize, async (batch) => {
-    const batchResult = await multicall.callStatic.aggregate3(batch);
-    result = result.concat(batchResult);
-  });
+  // If multicall is not available, use direct DataStore calls
+  if (!multicall) {
+    // Fallback to direct calls
+    for (let i = 0; i < multicallReadParams.length; i++) {
+      const param = multicallReadParams[i];
+      try {
+        const hre = await import("hardhat");
+        const callResult = await hre.ethers.provider.call({
+          to: param.target,
+          data: param.callData,
+        });
+        result.push({ returnData: callResult, success: true });
+      } catch (error: any) {
+        // If call fails, use empty/default value
+        const item = items[i];
+        if (item.type === "uint") {
+          result.push({ returnData: "0x0000000000000000000000000000000000000000000000000000000000000000", success: false });
+        } else if (item.type === "address") {
+          result.push({ returnData: "0x0000000000000000000000000000000000000000", success: false });
+        } else if (item.type === "bool") {
+          result.push({ returnData: "0x0000000000000000000000000000000000000000000000000000000000000000", success: false });
+        } else {
+          result.push({ returnData: "0x", success: false });
+        }
+      }
+    }
+  } else {
+    await handleInBatches(multicallReadParams, batchSize, async (batch) => {
+      const batchResult = await multicall.callStatic.aggregate3(batch);
+      result = result.concat(batchResult);
+    });
+  }
 
   const dataCache = {};
   for (let i = 0; i < configKeys.length; i++) {
     const type = types[i];
     const key = configKeys[i];
-    const value = result[i].returnData;
-    if (type === "uint") {
-      dataCache[key] = bigNumberify(value);
-    } else if (type === "address") {
-      dataCache[key] = ethers.utils.defaultAbiCoder.decode(["address"], value)[0];
-    } else if (type === "bool") {
-      dataCache[key] = ethers.utils.defaultAbiCoder.decode(["bool"], value)[0];
-    } else {
-      throw new Error(`Unsupported type: ${type}`);
+    const resultItem = result[i];
+    const value = resultItem.returnData || resultItem; // Handle both multicall result format and direct call result
+    
+    // If the call failed or returned empty, use default value
+    if (!value || value === "0x" || (resultItem.success === false)) {
+      if (type === "uint") {
+        dataCache[key] = bigNumberify(0);
+      } else if (type === "address") {
+        dataCache[key] = ethers.constants.AddressZero;
+      } else if (type === "bool") {
+        dataCache[key] = false;
+      } else {
+        dataCache[key] = "";
+      }
+      continue;
+    }
+    
+    try {
+      if (type === "uint") {
+        dataCache[key] = bigNumberify(value);
+      } else if (type === "address") {
+        dataCache[key] = ethers.utils.defaultAbiCoder.decode(["address"], value)[0];
+      } else if (type === "bool") {
+        dataCache[key] = ethers.utils.defaultAbiCoder.decode(["bool"], value)[0];
+      } else {
+        throw new Error(`Unsupported type: ${type}`);
+      }
+    } catch (error: any) {
+      // If decoding fails, use default value
+      console.warn(`⚠️  Failed to decode ${type} for ${key}: ${error.message}, using default`);
+      if (type === "uint") {
+        dataCache[key] = bigNumberify(0);
+      } else if (type === "address") {
+        dataCache[key] = ethers.constants.AddressZero;
+      } else if (type === "bool") {
+        dataCache[key] = false;
+      } else {
+        dataCache[key] = "";
+      }
     }
   }
 

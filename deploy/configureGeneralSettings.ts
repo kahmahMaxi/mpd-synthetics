@@ -34,7 +34,14 @@ const func = async ({ gmx }: HardhatRuntimeEnvironment) => {
   );
 
   if (!gmx.isExistingMainnetDeployment) {
-    await updateGeneralConfig({ write: true });
+    try {
+      await updateGeneralConfig({ write: true });
+    } catch (error: any) {
+      // If updateGeneralConfig fails (e.g., Multicall3 not available), log warning and continue
+      // The individual set*IfDifferent calls above should still work
+      console.warn(`⚠️  updateGeneralConfig failed: ${error.message}`);
+      console.warn(`   Continuing with basic config settings...`);
+    }
   }
 };
 

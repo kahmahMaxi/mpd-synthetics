@@ -72,6 +72,9 @@ export function createDeployFunction({
       waitConfirmations = 2;
     }
 
+    // For local networks, skip transaction verification to avoid errors after node reset
+    const isLocalNetwork = network.name === "hardhat" || network.name === "localhost";
+    
     try {
       deployedContract = await deploy(contractName, {
         from: deployer,
@@ -80,19 +83,52 @@ export function createDeployFunction({
         libraries,
         waitConfirmations,
       });
-    } catch (e) {
-      // the caught error might not be very informative
-      // e.g. if some library dependency is missing, which library it is
-      // is not shown in the error
-      // attempt a deploy using hardhat so that a more detailed error
-      // would be thrown
-      await deployContract(contractName, deployArgs, {
-        libraries,
-      });
+    } catch (e: any) {
+      // If error is about transaction verification on local network, force redeploy
+      if (isLocalNetwork && e.message && e.message.includes("cannot get the transaction")) {
+        try {
+          // Force redeploy by deleting the deployment record first
+          const existingDeployment = await deployments.getOrNull(contractName);
+          if (existingDeployment) {
+            // Delete the deployment record to force fresh deploy
+            await deployments.delete(contractName);
+          }
+          
+          // Now deploy fresh
+          deployedContract = await deploy(contractName, {
+            from: deployer,
+            log: true,
+            args: deployArgs,
+            libraries,
+            waitConfirmations,
+            resetMemory: true,
+          });
+        } catch (e2: any) {
+          // If that also fails, try with force flag
+          deployedContract = await deploy(contractName, {
+            from: deployer,
+            log: true,
+            args: deployArgs,
+            libraries,
+            waitConfirmations,
+            resetMemory: true,
+            force: true,
+          });
+        }
+      } else {
+        // the caught error might not be very informative
+        // e.g. if some library dependency is missing, which library it is
+        // is not shown in the error
+        // attempt a deploy using hardhat so that a more detailed error
+        // would be thrown
+        await deployContract(contractName, deployArgs, {
+          libraries,
+        });
 
-      // throw an error even if the hardhat deploy works
-      // because the actual deploy did not succeed
-      throw new Error(`Deploy failed with error ${e}`);
+        // throw an error even if the hardhat deploy works
+        // because the actual deploy did not succeed
+        throw new Error(`Deploy failed with error ${e}`);
+      }
     }
 
     if (afterDeploy) {
