@@ -484,6 +484,18 @@ task("mpd:dry-run", "Dry-run MPD deployment (no on-chain actions)")
   });
 // --- MPD Integration End ---
 
+// --- Oracle Integration Start ---
+task("oracle:set", "Set oracle prices")
+  .addOptionalParam("eth", "ETH price in USD", undefined, types.string)
+  .addOptionalParam("btc", "BTC price in USD", undefined, types.string)
+  .addOptionalParam("sol", "SOL price in USD", undefined, types.string)
+  .addOptionalParam("usdc", "USDC price in USD", undefined, types.string)
+  .setAction(async (taskArgs, env) => {
+    const { main } = require("./scripts/setOraclePrices");
+    await main(taskArgs);
+  });
+// --- Oracle Integration End ---
+
 task("collect-deployments", "Collect current deployments into the docs folder").setAction(collectDeployments);
 
 task("generate-deployment-docs", "Generate deployment documentation for all networks")

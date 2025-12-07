@@ -7,5 +7,6 @@
   "reserveFactor": "0.85",
   "maxCumulativeDeltaDiff": "0.02",
   "tokenDecimals": 18,
-  "marketTokenAddress": "0xEa8D0840154562206d35cBf38057D281e6c10916"
+  "marketTokenAddress": "0xEa8D0840154562206d35cBf38057D281e6c10916",
+  "oracleFeed": "WETHPriceFeed"
 }
