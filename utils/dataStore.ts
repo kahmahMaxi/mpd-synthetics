@@ -1,5 +1,5 @@
 import hre from "hardhat";
-import { BigNumber } from "ethers";
+import { BigNumber, ethers } from "ethers";
 import { signalHoldingAddressIfDifferent } from "./timelock";
 
 export async function setUintIfDifferent(key: string, value: BigNumber | string | number, label?: string) {
@@ -52,10 +52,51 @@ async function setIfDifferent(
   const getMethod = `get${type[0].toUpperCase()}${type.slice(1)}`;
   const setMethod = `set${type[0].toUpperCase()}${type.slice(1)}`;
 
-  const currentValue: string = await read("DataStore", getMethod, key);
-  if (compare ? !compare(currentValue, value) : currentValue != value) {
-    log("setting %s %s (%s) to %s, prev: %s", type, label || "", key, value.toString(), currentValue.toString());
-    await execute("DataStore", { from: deployer, log: true }, setMethod, key, value);
+  // Check if DataStore is deployed and accessible
+  let currentValue: any;
+  try {
+    // Try to get DataStore deployment first
+    const dataStore = await hre.deployments.get("DataStore");
+    if (!dataStore || !dataStore.address) {
+      throw new Error("DataStore not deployed");
+    }
+    
+    // Use direct contract call instead of deployments.read for better error handling
+    const dataStoreContract = await hre.ethers.getContractAt("DataStore", dataStore.address);
+    const rawValue = await dataStoreContract[getMethod](key);
+    
+    // Convert to appropriate type based on the data type
+    if (type === "uint" || type === "int") {
+      currentValue = BigNumber.from(rawValue);
+    } else {
+      currentValue = rawValue;
+    }
+  } catch (error: any) {
+    // If DataStore is not accessible, log warning and attempt to set anyway
+    log(`⚠️  Could not read ${type} for ${label || key}: ${error.message}`);
+    log(`   Attempting to set value anyway...`);
+    // Use appropriate default value based on type
+    if (type === "uint" || type === "int") {
+      currentValue = BigNumber.from(0);
+    } else {
+      currentValue = type === "address" ? ethers.constants.AddressZero : "";
+    }
+  }
+
+  // Convert value to BigNumber if needed for comparison
+  let valueToCompare = value;
+  if ((type === "uint" || type === "int") && !BigNumber.isBigNumber(value)) {
+    valueToCompare = BigNumber.from(value);
+  }
+
+  if (compare ? !compare(currentValue, valueToCompare) : currentValue != valueToCompare) {
+    try {
+      log("setting %s %s (%s) to %s, prev: %s", type, label || "", key, value.toString(), currentValue.toString());
+      await execute("DataStore", { from: deployer, log: true }, setMethod, key, value);
+    } catch (error: any) {
+      log(`❌ Failed to set ${type} ${label || key}: ${error.message}`);
+      throw error;
+    }
   } else {
     log("skipping %s %s (%s) as it is already set to %s", type, label, key, value.toString());
   }

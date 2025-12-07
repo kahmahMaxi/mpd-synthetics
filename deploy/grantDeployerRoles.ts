@@ -15,11 +15,34 @@ const func = async ({ getNamedAccounts, deployments, network }: HardhatRuntimeEn
 
   for (const role of roles) {
     const roleHash = hashString(role);
-    const hasRole = await read("RoleStore", "hasRole", deployer, roleHash);
+    
+    // Check if RoleStore is deployed and accessible
+    let hasRole = false;
+    try {
+      // Try to get RoleStore deployment first
+      const roleStore = await deployments.get("RoleStore");
+      if (!roleStore || !roleStore.address) {
+        throw new Error("RoleStore not deployed");
+      }
+      
+      // Use direct contract call instead of deployments.read for better error handling
+      const roleStoreContract = await hre.ethers.getContractAt("RoleStore", roleStore.address);
+      hasRole = await roleStoreContract.hasRole(deployer, roleHash);
+    } catch (error: any) {
+      // If RoleStore is not accessible, log warning and attempt to grant anyway
+      log(`⚠️  Could not check ${role} role for deployer: ${error.message}`);
+      log(`   Attempting to grant role anyway...`);
+      hasRole = false; // Assume role is not granted if we can't check
+    }
 
     if (!hasRole) {
-      log(`Granting ${role} role to deployer ${deployer}`);
-      await execute("RoleStore", { from: deployer, log: true }, "grantRole", deployer, roleHash);
+      try {
+        log(`Granting ${role} role to deployer ${deployer}`);
+        await execute("RoleStore", { from: deployer, log: true }, "grantRole", deployer, roleHash);
+      } catch (error: any) {
+        log(`❌ Failed to grant ${role} role to deployer: ${error.message}`);
+        throw error;
+      }
     } else {
       log(`Deployer already has ${role} role`);
     }

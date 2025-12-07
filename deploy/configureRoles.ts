@@ -20,18 +20,20 @@ const rolesToRemove = {
   arbitrumSepolia: [],
 };
 
-const func = async ({ gmx, network }) => {
+const func = async ({ gmx, network, deployments }) => {
   const { roles } = await gmx.getRoles();
   for (const role in roles) {
     const accounts = roles[role];
     for (const account in accounts) {
-      await grantRoleIfNotGranted({ address: account }, role);
+      // grantRoleIfNotGranted expects a deployedContract object with address and contractName
+      // For accounts, we'll use the account address as a label
+      await grantRoleIfNotGranted({ address: account, contractName: account }, role, account);
     }
   }
 
   const _rolesToRemove = rolesToRemove[network.name] || [];
   for (const { member, role } of _rolesToRemove) {
-    await revokeRoleIfGranted({ address: member }, role);
+    await revokeRoleIfGranted({ address: member, contractName: member }, role, member);
   }
 };
 
