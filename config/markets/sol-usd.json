@@ -6,6 +6,6 @@
   "shortTokenSymbol": "USDC",
   "reserveFactor": "0.85",
   "maxCumulativeDeltaDiff": "0.02",
-  "tokenDecimals": 18
+  "tokenDecimals": 18,
+  "marketTokenAddress": "0x4B6220E8f869d1C508c1a476693b02156a5bDBBc"
 }
-
