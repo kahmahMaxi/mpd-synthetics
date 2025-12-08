@@ -1,0 +1,11 @@
+{
+  "symbol": "WETH",
+  "decimals": 18,
+  "address": "0x68B1D87F95878fE05B998F19b66F4baba5De1aed",
+  "oracleId": "ETH",
+  "priceFeedMultiplier": "10000000000000000000000000000000000",
+  "priceFeedDecimals": 8,
+  "tokenType": "volatile",
+  "isCollateralToken": true,
+  "isSwapToken": true
+}

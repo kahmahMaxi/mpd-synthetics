@@ -19,6 +19,7 @@ interface TokenConfig {
   tokenType: "stable" | "volatile";
   isCollateralToken: boolean;
   isSwapToken: boolean;
+  wrappedNative?: boolean; // Optional: true for WETH
 }
 
 const TOKENS_DIR = path.resolve(__dirname, "..", "config", "tokens");
@@ -44,16 +45,86 @@ async function main() {
     status: string;
   }> = [];
 
+  // Ensure tokens directory exists
+  if (!fs.existsSync(TOKENS_DIR)) {
+    fs.mkdirSync(TOKENS_DIR, { recursive: true });
+  }
+
+  // Token configurations with defaults
+  const tokenDefaults: Record<string, Partial<TokenConfig>> = {
+    "usdc.json": {
+      symbol: "USDC",
+      decimals: 6,
+      oracleId: "USDC",
+      priceFeedMultiplier: "10000000000000000000000000000000000000000000000",
+      priceFeedDecimals: 8,
+      tokenType: "stable",
+      isCollateralToken: true,
+      isSwapToken: true,
+    },
+    "weth.json": {
+      symbol: "WETH",
+      decimals: 18,
+      oracleId: "ETH",
+      priceFeedMultiplier: "10000000000000000000000000000000000",
+      priceFeedDecimals: 8,
+      tokenType: "volatile",
+      isCollateralToken: true,
+      isSwapToken: true,
+      wrappedNative: true,
+    },
+    "wbtc.json": {
+      symbol: "WBTC",
+      decimals: 8,
+      oracleId: "BTC",
+      priceFeedMultiplier: "10000000000000000000000000000000000",
+      priceFeedDecimals: 8,
+      tokenType: "volatile",
+      isCollateralToken: true,
+      isSwapToken: true,
+    },
+    "sol.json": {
+      symbol: "SOL",
+      decimals: 18,
+      oracleId: "SOL",
+      priceFeedMultiplier: "10000000000000000000000000000000000",
+      priceFeedDecimals: 8,
+      tokenType: "volatile",
+      isCollateralToken: true,
+      isSwapToken: true,
+    },
+  };
+
   // Deploy each token
   for (const tokenFile of TOKEN_FILES) {
     const tokenPath = path.join(TOKENS_DIR, tokenFile);
     
+    // Create config file if it doesn't exist
+    let config: TokenConfig;
     if (!fs.existsSync(tokenPath)) {
-      console.error(`❌ Config file not found: ${tokenPath}`);
-      continue;
+      console.log(`📝 Creating config file: ${tokenFile}`);
+      const defaults = tokenDefaults[tokenFile];
+      if (!defaults) {
+        console.error(`❌ No defaults found for ${tokenFile}`);
+        continue;
+      }
+      config = {
+        symbol: defaults.symbol!,
+        decimals: defaults.decimals!,
+        address: "", // Will be filled after deployment
+        oracleId: defaults.oracleId!,
+        priceFeedMultiplier: defaults.priceFeedMultiplier!,
+        priceFeedDecimals: defaults.priceFeedDecimals!,
+        tokenType: defaults.tokenType!,
+        isCollateralToken: defaults.isCollateralToken!,
+        isSwapToken: defaults.isSwapToken!,
+      } as TokenConfig;
+      // Write initial config file
+      fs.writeFileSync(tokenPath, JSON.stringify(config, null, 2));
+    } else {
+      config = JSON.parse(fs.readFileSync(tokenPath, "utf8"));
     }
 
-    const config: TokenConfig = JSON.parse(fs.readFileSync(tokenPath, "utf8"));
     const symbol = config.symbol;
 
     console.log(`📦 Deploying ${symbol}...`);
