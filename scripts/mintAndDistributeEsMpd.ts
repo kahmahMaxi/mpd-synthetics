@@ -5,8 +5,76 @@
  */
 
 import hre from "hardhat";
+import * as fs from "fs";
+import * as path from "path";
 import { getEsMpdAddress, getFeeDistributorAddress } from "../utils/rewardAdapter";
+import { clearTokenAdapterCache } from "../utils/tokenAdapter";
 import { expandDecimals } from "../utils/math";
+
+/**
+ * Check if contract code exists at address
+ */
+async function contractExists(address: string): Promise<boolean> {
+  try {
+    const code = await hre.ethers.provider.getCode(address);
+    return code !== "0x" && code !== "0x0";
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Load MPD token addresses from mpd-token deployments folder
+ */
+function loadMpdDeployments(network: string): any {
+  // Try network-specific file first (e.g., localhost.json)
+  const networkPath = path.resolve(
+    __dirname, "..", "..", "mpd-token", "deployments", `${network}.json`
+  );
+  
+  // Fallback to local.json
+  const localPath = path.resolve(
+    __dirname, "..", "..", "mpd-token", "deployments", "local.json"
+  );
+  
+  if (fs.existsSync(networkPath)) {
+    console.log(`   📂 Loading deployments from: ${network}.json`);
+    return JSON.parse(fs.readFileSync(networkPath, "utf8"));
+  } else if (fs.existsSync(localPath)) {
+    console.log(`   📂 Loading deployments from: local.json (fallback)`);
+    return JSON.parse(fs.readFileSync(localPath, "utf8"));
+  }
+  
+  return null;
+}
+
+/**
+ * Update tokens.mpd.json with fresh addresses
+ */
+function updateMpdConfig(deployments: any, network: string) {
+  const configPath = path.resolve(__dirname, "..", "config", "tokens.mpd.json");
+  const config = {
+    network: network,
+    MPDToken: deployments.MPDToken,
+    esMPD: deployments.esMPD,
+    Vester: deployments.Vester,
+    deployer: deployments.deployer,
+    timestamp: deployments.timestamp || new Date().toISOString(),
+    vestingDuration: deployments.vestingDuration || 31536000,
+    addresses: {
+      mpd: deployments.MPDToken,
+      esMpd: deployments.esMPD,
+      vester: deployments.Vester,
+    },
+    meta: {
+      source: `../../mpd-token/deployments/${network}.json`,
+      generated: new Date().toISOString(),
+    },
+  };
+  
+  fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+  console.log(`   ✅ Updated config/tokens.mpd.json`);
+}
 
 async function main() {
   console.log("══════════════════════════════════════════════════════════════════════");
@@ -31,7 +99,7 @@ async function main() {
   const amount = hre.ethers.BigNumber.from(amountStr);
 
   // Get addresses
-  const esMpdAddress = getEsMpdAddress();
+  let esMpdAddress = getEsMpdAddress();
   const feeDistributorAddress = await getFeeDistributorAddress();
 
   if (!esMpdAddress) {
@@ -42,21 +110,57 @@ async function main() {
     throw new Error("FeeDistributor not deployed. Deploy it first.");
   }
 
+  // Check if contract exists at address (for localhost, addresses change on restart)
+  const contractCodeExists = await contractExists(esMpdAddress);
+  
+  if (!contractCodeExists) {
+    console.log("⚠️  Contract not found at configured address. Loading fresh addresses...\n");
+    
+    // Try to load from mpd-token deployments
+    const networkName = hre.network.name === "localhost" ? "localhost" : hre.network.name;
+    const deployments = loadMpdDeployments(networkName);
+    
+    if (!deployments || !deployments.esMPD) {
+      throw new Error(
+        `esMPD contract not found at ${esMpdAddress} and no deployment file found.\n` +
+        `Please deploy MPD tokens first:\n` +
+        `  cd ../mpd-token && npx hardhat run scripts/deploy.js --network ${networkName}`
+      );
+    }
+    
+    // Update config with fresh addresses
+    esMpdAddress = deployments.esMPD;
+    updateMpdConfig(deployments, networkName);
+    clearTokenAdapterCache(); // Clear cache to pick up new addresses
+    console.log(`   ✅ Using fresh esMPD address: ${esMpdAddress}\n`);
+  }
+
   console.log("📦 Addresses:");
   console.log(`   esMPD: ${esMpdAddress}`);
   console.log(`   FeeDistributor: ${feeDistributorAddress}`);
   console.log(`   Amount: ${hre.ethers.utils.formatEther(amount)} esMPD\n`);
 
   // Get contracts
-  // EsMPD is in mpd-token repo, so we use a minimal interface
+  // EsMPD is in mpd-token repo, uses isMinter mapping (not AccessControl)
   const esMpdAbi = [
     "function balanceOf(address) view returns (uint256)",
     "function mint(address, uint256)",
-    "function MINTER_ROLE() view returns (bytes32)",
-    "function hasRole(bytes32, address) view returns (bool)",
+    "function isMinter(address) view returns (bool)",
+    "function setMinter(address, bool)",
+    "function owner() view returns (address)",
   ];
   const esMpd = await hre.ethers.getContractAt(esMpdAbi, esMpdAddress);
   const feeDistributor = await hre.ethers.getContractAt("FeeDistributor", feeDistributorAddress);
+
+  // Verify contract exists and has code
+  const contractCode = await hre.ethers.provider.getCode(esMpdAddress);
+  if (contractCode === "0x" || contractCode === "0x0") {
+    throw new Error(
+      `esMPD contract not found at ${esMpdAddress}.\n` +
+      `Please deploy MPD tokens first:\n` +
+      `  cd ../mpd-token && npx hardhat run scripts/deploy.js --network ${hre.network.name}`
+    );
+  }
 
   // Check if deployer is a minter
   console.log("══════════════════════════════════════════════════════════════════════");
@@ -71,12 +175,27 @@ async function main() {
   try {
     console.log(`Minting ${hre.ethers.utils.formatEther(amount)} esMPD to FeeDistributor...`);
     
-    // Check if deployer has minter role
-    const minterRole = await esMpd.MINTER_ROLE();
-    const isMinter = await esMpd.hasRole(minterRole, deployer);
+    // Check if deployer has minter permission
+    const isMinter = await esMpd.isMinter(deployer);
     
     if (!isMinter) {
-      throw new Error(`Deployer ${deployer} does not have MINTER_ROLE on esMPD. Grant it first.`);
+      // Check if deployer is owner (can grant minter role)
+      const owner = await esMpd.owner();
+      const isOwner = owner.toLowerCase() === deployer.toLowerCase();
+      
+      if (isOwner) {
+        console.log(`⚠️  Deployer is owner but not a minter. Granting minter role...`);
+        const grantTx = await esMpd.setMinter(deployer, true);
+        await grantTx.wait();
+        console.log(`✅ Granted minter role to deployer\n`);
+      } else {
+        throw new Error(
+          `Deployer ${deployer} is not a minter on esMPD.\n` +
+          `Owner is: ${owner}\n` +
+          `Please grant minter role first:\n` +
+          `  npx hardhat run scripts/grantMinterRole.ts --network ${hre.network.name}`
+        );
+      }
     }
 
     const mintTx = await esMpd.mint(feeDistributorAddress, amount);
@@ -102,10 +221,8 @@ async function main() {
     console.log(`   (Requires FEE_DISTRIBUTION_KEEPER role)\n`);
 
   } catch (error: any) {
-    if (error.message.includes("MINTER_ROLE")) {
+    if (error.message.includes("not a minter") || error.message.includes("MINTER")) {
       console.error(`❌ ${error.message}`);
-      console.error(`\nTo grant minter role, run:`);
-      console.error(`   npx hardhat run scripts/grantMinterRole.ts --network localhost`);
     } else {
       throw error;
     }
