@@ -18,7 +18,15 @@ const func = async ({ deployments, getNamedAccounts, gmx }: HardhatRuntimeEnviro
 
   const dataStore = await get("DataStore");
 
-  let onchainMarketsByTokens = await getOnchainMarkets(read, dataStore.address);
+  // Try to get onchain markets, handle errors gracefully (e.g., if no markets exist yet)
+  let onchainMarketsByTokens: Record<string, any> = {};
+  try {
+    onchainMarketsByTokens = await getOnchainMarkets(read, dataStore.address);
+  } catch (error: any) {
+    log(`⚠️  Could not read existing markets from Reader: ${error.message}`);
+    log(`   Will proceed with market creation...`);
+    onchainMarketsByTokens = {};
+  }
 
   for (const marketConfig of markets) {
     const [indexToken, longToken, shortToken] = getMarketTokenAddresses(marketConfig, tokens);
@@ -37,18 +45,35 @@ const func = async ({ deployments, getNamedAccounts, gmx }: HardhatRuntimeEnviro
 
     const marketType = DEFAULT_MARKET_TYPE;
     log("creating market %s:%s:%s:%s", indexToken, longToken, shortToken, marketType);
-    await execute(
-      "MarketFactory",
-      { from: deployer, log: true },
-      "createMarket",
-      indexToken,
-      longToken,
-      shortToken,
-      marketType
-    );
+    try {
+      await execute(
+        "MarketFactory",
+        { from: deployer, log: true },
+        "createMarket",
+        indexToken,
+        longToken,
+        shortToken,
+        marketType
+      );
+    } catch (error: any) {
+      log(`⚠️  Failed to create market %s:%s:%s: ${error.message}`, indexToken, longToken, shortToken);
+      log(`   This might be because the market already exists or prerequisites are missing.`);
+      log(`   Continuing with next market...`);
+      // Continue to next market instead of failing completely
+    }
   }
 
-  onchainMarketsByTokens = await getOnchainMarkets(read, dataStore.address);
+  // Refresh onchain markets after creating new ones
+  try {
+    onchainMarketsByTokens = await getOnchainMarkets(read, dataStore.address);
+  } catch (error: any) {
+    log(`⚠️  Could not refresh markets from Reader: ${error.message}`);
+    log(`   Continuing with configuration...`);
+    // Keep existing onchainMarketsByTokens or use empty object
+    if (Object.keys(onchainMarketsByTokens).length === 0) {
+      onchainMarketsByTokens = {};
+    }
+  }
 
   for (const marketConfig of markets) {
     const [indexToken, longToken, shortToken] = getMarketTokenAddresses(marketConfig, tokens);

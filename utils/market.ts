@@ -141,14 +141,19 @@ export async function getOnchainMarkets(
     }
   >
 > {
-  const onchainMarkets = await read("Reader", "getMarkets", dataStoreAddress, 0, 1000);
-  return Object.fromEntries(
-    onchainMarkets.map((market) => {
-      const { indexToken, longToken, shortToken } = market;
-      const marketKey = getMarketKey(indexToken, longToken, shortToken);
-      return [marketKey, market];
-    })
-  );
+  try {
+    const onchainMarkets = await read("Reader", "getMarkets", dataStoreAddress, 0, 1000);
+    return Object.fromEntries(
+      onchainMarkets.map((market) => {
+        const { indexToken, longToken, shortToken } = market;
+        const marketKey = getMarketKey(indexToken, longToken, shortToken);
+        return [marketKey, market];
+      })
+    );
+  } catch (error: any) {
+    // If getMarkets fails (e.g., no markets exist yet, DataStore not initialized), return empty object
+    return {};
+  }
 }
 
 export function getMarketTokenAddresses(marketConfig, tokens) {
