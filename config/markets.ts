@@ -5045,14 +5045,10 @@ const config: {
       tokens: { indexToken: "WETH", longToken: "WETH", shortToken: "USDC" },
     },
     {
-      tokens: { indexToken: "GMX", longToken: "GMX", shortToken: "USDC" },
+      tokens: { indexToken: "WBTC", longToken: "WBTC", shortToken: "USDC" },
     },
     {
-      tokens: { longToken: "WETH", shortToken: "USDC" },
-      swapOnly: true,
-    },
-    {
-      tokens: { indexToken: "SOL", longToken: "WETH", shortToken: "USDC" },
+      tokens: { indexToken: "SOL", longToken: "SOL", shortToken: "USDC" },
     },
   ],
 };

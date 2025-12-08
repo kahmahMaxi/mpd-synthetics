@@ -716,7 +716,7 @@ export async function updateMarketConfig({
   includePositionImpact = false,
   includeMaxOpenInterest = false,
 }) {
-  if (!["arbitrumGoerli", "avalancheFuji", "hardhat"].includes(hre.network.name)) {
+  if (!["arbitrumGoerli", "avalancheFuji", "hardhat", "localhost"].includes(hre.network.name)) {
     const { errors } = await validateMarketConfigs();
     if (errors.length !== 0) {
       throw new Error("Invalid market configs");

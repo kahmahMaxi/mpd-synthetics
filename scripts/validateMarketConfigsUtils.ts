@@ -1347,6 +1347,20 @@ export async function validateMarketConfigs() {
       shortTokenSymbol?.padEnd(5)
     );
 
+    // Skip validation if marketConfig is missing (for localhost, markets might be deployed without full configs)
+    if (!marketConfig) {
+      if (hre.network.name === "hardhat" || hre.network.name === "localhost") {
+        console.log(`   ⚠️  Skipping validation - no config found for market ${marketKey} (this is OK for local networks)`);
+        continue;
+      }
+      errors.push({
+        message: `Market ${marketKey} exists on-chain but has no config`,
+        expected: "market config",
+        actual: "undefined",
+      });
+      continue;
+    }
+
     await validatePerpConfig({
       market,
       marketConfig,
