@@ -46,23 +46,111 @@ async function loadTokenConfig(symbol: string): Promise<TokenConfig> {
 }
 
 async function loadMarketConfigs(): Promise<Array<{ file: string; config: MarketConfig }>> {
+  // Ensure markets directory exists
+  if (!fs.existsSync(MARKETS_DIR)) {
+    fs.mkdirSync(MARKETS_DIR, { recursive: true });
+  }
+
+  // Create deploy-config.markets.json if it doesn't exist
   if (!fs.existsSync(MARKETS_CONFIG_PATH)) {
-    throw new Error(`Markets config not found: ${MARKETS_CONFIG_PATH}`);
+    console.log(`📝 Creating markets config file: deploy-config.markets.json`);
+    const defaultMarketsConfig = {
+      markets: [
+        "config/markets/eth-usd.json",
+        "config/markets/btc-usd.json",
+        "config/markets/sol-usd.json",
+        "config/markets/weth-usd.json",
+      ],
+      collateralTokens: [
+        "config/tokens/usdc.json",
+        "config/tokens/weth.json",
+        "config/tokens/wbtc.json",
+        "config/tokens/sol.json",
+      ],
+      generatedAt: new Date().toISOString(),
+      network: hre.network.name,
+    };
+    fs.writeFileSync(MARKETS_CONFIG_PATH, JSON.stringify(defaultMarketsConfig, null, 2));
   }
 
   const marketsConfig = JSON.parse(fs.readFileSync(MARKETS_CONFIG_PATH, "utf8"));
   const marketFiles = marketsConfig.markets || [];
 
+  // Market defaults based on file name
+  const marketDefaults: Record<string, Partial<MarketConfig>> = {
+    "config/markets/eth-usd.json": {
+      marketTokenSymbol: "ETH-USD",
+      marketTokenName: "ETH / USD Market",
+      indexTokenSymbol: "WETH",
+      longTokenSymbol: "WETH",
+      shortTokenSymbol: "USDC",
+      reserveFactor: "0.85",
+      maxCumulativeDeltaDiff: "0.02",
+      tokenDecimals: 18,
+    },
+    "config/markets/btc-usd.json": {
+      marketTokenSymbol: "BTC-USD",
+      marketTokenName: "BTC / USD Market",
+      indexTokenSymbol: "WBTC",
+      longTokenSymbol: "WBTC",
+      shortTokenSymbol: "USDC",
+      reserveFactor: "0.85",
+      maxCumulativeDeltaDiff: "0.02",
+      tokenDecimals: 8,
+    },
+    "config/markets/sol-usd.json": {
+      marketTokenSymbol: "SOL-USD",
+      marketTokenName: "SOL / USD Market",
+      indexTokenSymbol: "SOL",
+      longTokenSymbol: "SOL",
+      shortTokenSymbol: "USDC",
+      reserveFactor: "0.85",
+      maxCumulativeDeltaDiff: "0.02",
+      tokenDecimals: 18,
+    },
+    "config/markets/weth-usd.json": {
+      marketTokenSymbol: "WETH-USD",
+      marketTokenName: "WETH / USD Market",
+      indexTokenSymbol: "WETH",
+      longTokenSymbol: "WETH",
+      shortTokenSymbol: "USDC",
+      reserveFactor: "0.85",
+      maxCumulativeDeltaDiff: "0.02",
+      tokenDecimals: 18,
+    },
+  };
+
   const marketConfigs: Array<{ file: string; config: MarketConfig }> = [];
 
   for (const marketFile of marketFiles) {
     const marketPath = path.resolve(__dirname, "..", marketFile);
+    
+    // Create market config file if it doesn't exist
+    let config: MarketConfig;
     if (!fs.existsSync(marketPath)) {
-      console.warn(`⚠️  Market config not found: ${marketPath}`);
-      continue;
+      console.log(`📝 Creating market config file: ${marketFile}`);
+      const defaults = marketDefaults[marketFile];
+      if (!defaults) {
+        console.warn(`⚠️  No defaults found for ${marketFile}, skipping...`);
+        continue;
+      }
+      config = {
+        marketTokenSymbol: defaults.marketTokenSymbol!,
+        marketTokenName: defaults.marketTokenName!,
+        indexTokenSymbol: defaults.indexTokenSymbol!,
+        longTokenSymbol: defaults.longTokenSymbol!,
+        shortTokenSymbol: defaults.shortTokenSymbol!,
+        reserveFactor: defaults.reserveFactor!,
+        maxCumulativeDeltaDiff: defaults.maxCumulativeDeltaDiff!,
+        tokenDecimals: defaults.tokenDecimals!,
+        marketTokenAddress: "", // Will be filled after deployment
+      };
+      // Write initial config file
+      fs.writeFileSync(marketPath, JSON.stringify(config, null, 2));
+    } else {
+      config = JSON.parse(fs.readFileSync(marketPath, "utf8"));
     }
 
-    const config: MarketConfig = JSON.parse(fs.readFileSync(marketPath, "utf8"));
     marketConfigs.push({ file: marketFile, config });
   }
 

@@ -1,0 +1,11 @@
+{
+  "marketTokenSymbol": "SOL-USD",
+  "marketTokenName": "SOL / USD Market",
+  "indexTokenSymbol": "SOL",
+  "longTokenSymbol": "SOL",
+  "shortTokenSymbol": "USDC",
+  "reserveFactor": "0.85",
+  "maxCumulativeDeltaDiff": "0.02",
+  "tokenDecimals": 18,
+  "marketTokenAddress": "0x6dbA3b070EAe106B7544ab308b38631d7701D88f"
+}

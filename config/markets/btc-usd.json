@@ -1,0 +1,11 @@
+{
+  "marketTokenSymbol": "BTC-USD",
+  "marketTokenName": "BTC / USD Market",
+  "indexTokenSymbol": "WBTC",
+  "longTokenSymbol": "WBTC",
+  "shortTokenSymbol": "USDC",
+  "reserveFactor": "0.85",
+  "maxCumulativeDeltaDiff": "0.02",
+  "tokenDecimals": 8,
+  "marketTokenAddress": "0xc9BAf2262d022851064AA686F51a4c765f6e1442"
+}
