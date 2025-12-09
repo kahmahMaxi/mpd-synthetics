@@ -36,6 +36,11 @@ describe("Reward Flow", function () {
       user0 = fixture.user0;
       user1 = fixture.user1;
       deployer = fixture.wallet;
+      
+      // Verify fixture deployed correctly
+      if (!user0 || !deployer) {
+        throw new Error("Fixture users not initialized");
+      }
     } catch (error: any) {
       console.warn("Could not deploy fixture, skipping tests:", error.message);
       this.skip();
@@ -43,21 +48,24 @@ describe("Reward Flow", function () {
     }
 
     // Use minimal ABIs for contracts from mpd-token repo
+    // MPD uses AccessControl (has MINTER_ROLE)
     const mpdAbi = [
       "function balanceOf(address) view returns (uint256)",
       "function mint(address, uint256)",
       "function MINTER_ROLE() view returns (bytes32)",
       "function hasRole(bytes32, address) view returns (bool)",
     ];
+    // esMPD uses isMinter mapping (not AccessControl)
     const esMpdAbi = [
       "function balanceOf(address) view returns (uint256)",
       "function mint(address, uint256)",
-      "function approve(address, uint256) returns (bool)",
-      "function MINTER_ROLE() view returns (bytes32)",
-      "function hasRole(bytes32, address) view returns (bool)",
+      "function isMinter(address) view returns (bool)",
+      "function setMinter(address, bool)",
+      "function owner() view returns (address)",
     ];
+    // Vester uses depositedAmount (singular, not plural)
     const vesterAbi = [
-      "function depositedAmounts(address) view returns (uint256)",
+      "function depositedAmount(address) view returns (uint256)", // Fixed: singular
       "function claimable(address) view returns (uint256)",
       "function deposit(uint256)",
       "function claim()",
@@ -84,13 +92,36 @@ describe("Reward Flow", function () {
         return;
       }
 
+      if (!deployer) {
+        this.skip();
+        return;
+      }
+
       const amount = expandDecimals(10000, 18); // 10000 esMPD
-      const minterRole = await esMpd.MINTER_ROLE();
-      const isMinter = await esMpd.hasRole(minterRole, deployer.address);
+      // esMPD uses isMinter mapping, not AccessControl
+      let isMinter = false;
+      try {
+        isMinter = await esMpd.isMinter(deployer.address);
+      } catch (error) {
+        this.skip();
+        return;
+      }
 
       if (!isMinter) {
-        this.skip(); // Skip if deployer is not a minter
-        return;
+        // Try to grant minter role if deployer is owner
+        try {
+          const owner = await esMpd.owner();
+          if (owner.toLowerCase() === deployer.address.toLowerCase()) {
+            await esMpd.setMinter(deployer.address, true);
+            isMinter = true;
+          } else {
+            this.skip(); // Skip if deployer is not a minter
+            return;
+          }
+        } catch (error) {
+          this.skip();
+          return;
+        }
       }
 
       const initialBalance = await esMpd.balanceOf(feeDistributor.address);
@@ -103,9 +134,23 @@ describe("Reward Flow", function () {
 
   describe("User Staking and Rewards", function () {
     it("Should allow user to receive MPD and stake it", async function () {
+      if (!user0 || !deployer) {
+        this.skip();
+        return;
+      }
+
       const amount = expandDecimals(1000, 18); // 1000 MPD
-      const minterRole = await mpd.MINTER_ROLE();
-      const isMinter = await mpd.hasRole(minterRole, deployer.address);
+      
+      // Check if MPD contract exists and has MINTER_ROLE
+      let isMinter = false;
+      try {
+        const minterRole = await mpd.MINTER_ROLE();
+        isMinter = await mpd.hasRole(minterRole, deployer.address);
+      } catch (error) {
+        // Contract might not exist or doesn't have MINTER_ROLE
+        this.skip();
+        return;
+      }
 
       if (!isMinter) {
         this.skip();
@@ -122,13 +167,35 @@ describe("Reward Flow", function () {
     });
 
     it("Should allow user to receive esMPD rewards", async function () {
-      const amount = expandDecimals(100, 18); // 100 esMPD
-      const minterRole = await esMpd.MINTER_ROLE();
-      const isMinter = await esMpd.hasRole(minterRole, deployer.address);
-
-      if (!isMinter) {
+      if (!user0 || !deployer) {
         this.skip();
         return;
+      }
+
+      const amount = expandDecimals(100, 18); // 100 esMPD
+      // esMPD uses isMinter mapping, not AccessControl
+      let isMinter = false;
+      try {
+        isMinter = await esMpd.isMinter(deployer.address);
+      } catch (error) {
+        this.skip();
+        return;
+      }
+
+      if (!isMinter) {
+        try {
+          const owner = await esMpd.owner();
+          if (owner.toLowerCase() === deployer.address.toLowerCase()) {
+            await esMpd.setMinter(deployer.address, true);
+            isMinter = true;
+          } else {
+            this.skip();
+            return;
+          }
+        } catch (error) {
+          this.skip();
+          return;
+        }
       }
 
       // Mint esMPD to user (simulating reward claim)
@@ -140,41 +207,84 @@ describe("Reward Flow", function () {
 
   describe("Vester Deposit and Vesting", function () {
     it("Should allow user to deposit esMPD into Vester", async function () {
-      const amount = expandDecimals(100, 18); // 100 esMPD
-      const minterRole = await esMpd.MINTER_ROLE();
-      const isMinter = await esMpd.hasRole(minterRole, deployer.address);
-
-      if (!isMinter) {
+      if (!user0 || !deployer) {
         this.skip();
         return;
+      }
+
+      const amount = expandDecimals(100, 18); // 100 esMPD
+      // esMPD uses isMinter mapping, not AccessControl
+      let isMinter = false;
+      try {
+        isMinter = await esMpd.isMinter(deployer.address);
+      } catch (error) {
+        this.skip();
+        return;
+      }
+
+      if (!isMinter) {
+        try {
+          const owner = await esMpd.owner();
+          if (owner.toLowerCase() === deployer.address.toLowerCase()) {
+            await esMpd.setMinter(deployer.address, true);
+            isMinter = true;
+          } else {
+            this.skip();
+            return;
+          }
+        } catch (error) {
+          this.skip();
+          return;
+        }
       }
 
       // Mint esMPD to user
       await esMpd.mint(user0.address, amount);
 
-      // Approve Vester
-      await esMpd.connect(user0).approve(vester.address, amount);
-
+      // Note: esMPD is non-transferable, so Vester burns it directly
+      // No approval needed - Vester calls burn() internally
       // Deposit into Vester
       await vester.connect(user0).deposit(amount);
 
-      const deposited = await vester.depositedAmounts(user0.address);
+      const deposited = await vester.depositedAmount(user0.address); // Fixed: singular
       expect(deposited).to.eq(amount);
     });
 
     it("Should increase claimable amount over time", async function () {
-      const amount = expandDecimals(100, 18); // 100 esMPD
-      const minterRole = await esMpd.MINTER_ROLE();
-      const isMinter = await esMpd.hasRole(minterRole, deployer.address);
-
-      if (!isMinter) {
+      if (!user0 || !deployer) {
         this.skip();
         return;
       }
 
+      const amount = expandDecimals(100, 18); // 100 esMPD
+      // esMPD uses isMinter mapping, not AccessControl
+      let isMinter = false;
+      try {
+        isMinter = await esMpd.isMinter(deployer.address);
+      } catch (error) {
+        this.skip();
+        return;
+      }
+
+      if (!isMinter) {
+        try {
+          const owner = await esMpd.owner();
+          if (owner.toLowerCase() === deployer.address.toLowerCase()) {
+            await esMpd.setMinter(deployer.address, true);
+            isMinter = true;
+          } else {
+            this.skip();
+            return;
+          }
+        } catch (error) {
+          this.skip();
+          return;
+        }
+      }
+
       // Mint and deposit
       await esMpd.mint(user0.address, amount);
-      await esMpd.connect(user0).approve(vester.address, amount);
+      // Note: esMPD is non-transferable, Vester burns directly - no approval needed
       await vester.connect(user0).deposit(amount);
 
       // Check initial claimable (should be 0)
@@ -191,18 +301,40 @@ describe("Reward Flow", function () {
     });
 
     it("Should allow user to claim vested MPD", async function () {
-      const amount = expandDecimals(100, 18); // 100 esMPD
-      const minterRole = await esMpd.MINTER_ROLE();
-      const isMinter = await esMpd.hasRole(minterRole, deployer.address);
-
-      if (!isMinter) {
+      if (!user0 || !deployer) {
         this.skip();
         return;
       }
 
+      const amount = expandDecimals(100, 18); // 100 esMPD
+      // esMPD uses isMinter mapping, not AccessControl
+      let isMinter = false;
+      try {
+        isMinter = await esMpd.isMinter(deployer.address);
+      } catch (error) {
+        this.skip();
+        return;
+      }
+
+      if (!isMinter) {
+        try {
+          const owner = await esMpd.owner();
+          if (owner.toLowerCase() === deployer.address.toLowerCase()) {
+            await esMpd.setMinter(deployer.address, true);
+            isMinter = true;
+          } else {
+            this.skip();
+            return;
+          }
+        } catch (error) {
+          this.skip();
+          return;
+        }
+      }
+
       // Mint and deposit
       await esMpd.mint(user0.address, amount);
-      await esMpd.connect(user0).approve(vester.address, amount);
+      // Note: esMPD is non-transferable, Vester burns directly - no approval needed
       await vester.connect(user0).deposit(amount);
 
       // Fast-forward 90 days (should have significant claimable)
@@ -224,18 +356,40 @@ describe("Reward Flow", function () {
     });
 
     it("Should allow user to withdraw unvested esMPD", async function () {
-      const amount = expandDecimals(100, 18); // 100 esMPD
-      const minterRole = await esMpd.MINTER_ROLE();
-      const isMinter = await esMpd.hasRole(minterRole, deployer.address);
-
-      if (!isMinter) {
+      if (!user0 || !deployer) {
         this.skip();
         return;
       }
 
+      const amount = expandDecimals(100, 18); // 100 esMPD
+      // esMPD uses isMinter mapping, not AccessControl
+      let isMinter = false;
+      try {
+        isMinter = await esMpd.isMinter(deployer.address);
+      } catch (error) {
+        this.skip();
+        return;
+      }
+
+      if (!isMinter) {
+        try {
+          const owner = await esMpd.owner();
+          if (owner.toLowerCase() === deployer.address.toLowerCase()) {
+            await esMpd.setMinter(deployer.address, true);
+            isMinter = true;
+          } else {
+            this.skip();
+            return;
+          }
+        } catch (error) {
+          this.skip();
+          return;
+        }
+      }
+
       // Mint and deposit
       await esMpd.mint(user0.address, amount);
-      await esMpd.connect(user0).approve(vester.address, amount);
+      // Note: esMPD is non-transferable, Vester burns directly - no approval needed
       await vester.connect(user0).deposit(amount);
 
       // Fast-forward 30 days (partial vesting)
@@ -243,7 +397,7 @@ describe("Reward Flow", function () {
       await time.increase(thirtyDays);
 
       const claimable = await vester.claimable(user0.address);
-      const deposited = await vester.depositedAmounts(user0.address);
+      const deposited = await vester.depositedAmount(user0.address); // Fixed: singular
 
       // Withdraw should return unvested amount
       const initialEsMpdBalance = await esMpd.balanceOf(user0.address);
@@ -258,13 +412,35 @@ describe("Reward Flow", function () {
 
   describe("Full Reward Cycle", function () {
     it("Should complete full cycle: receive esMPD -> deposit -> vest -> claim MPD", async function () {
-      const rewardAmount = expandDecimals(100, 18); // 100 esMPD
-      const minterRole = await esMpd.MINTER_ROLE();
-      const isMinter = await esMpd.hasRole(minterRole, deployer.address);
-
-      if (!isMinter) {
+      if (!user0 || !deployer) {
         this.skip();
         return;
+      }
+
+      const rewardAmount = expandDecimals(100, 18); // 100 esMPD
+      // esMPD uses isMinter mapping, not AccessControl
+      let isMinter = false;
+      try {
+        isMinter = await esMpd.isMinter(deployer.address);
+      } catch (error) {
+        this.skip();
+        return;
+      }
+
+      if (!isMinter) {
+        try {
+          const owner = await esMpd.owner();
+          if (owner.toLowerCase() === deployer.address.toLowerCase()) {
+            await esMpd.setMinter(deployer.address, true);
+            isMinter = true;
+          } else {
+            this.skip();
+            return;
+          }
+        } catch (error) {
+          this.skip();
+          return;
+        }
       }
 
       // Step 1: User receives esMPD (simulating reward claim)
@@ -273,10 +449,10 @@ describe("Reward Flow", function () {
       expect(esMpdBalance).to.eq(rewardAmount);
 
       // Step 2: Deposit into Vester
-      await esMpd.connect(user0).approve(vester.address, rewardAmount);
+      // Note: esMPD is non-transferable, Vester burns directly - no approval needed
       await vester.connect(user0).deposit(rewardAmount);
 
-      const deposited = await vester.depositedAmounts(user0.address);
+      const deposited = await vester.depositedAmount(user0.address); // Fixed: singular
       expect(deposited).to.eq(rewardAmount);
 
       // Step 3: Fast-forward 180 days

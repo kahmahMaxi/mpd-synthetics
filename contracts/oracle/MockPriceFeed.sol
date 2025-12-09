@@ -34,6 +34,17 @@ contract MockPriceFeed is Ownable {
     }
 
     /**
+     * @notice Update the price (Chainlink-compatible alias)
+     * @param newPrice New price in 8-decimal format (as int256)
+     * @dev This is an alias for setPrice() to maintain compatibility with Chainlink-style fixtures
+     */
+    function setAnswer(int256 newPrice) external onlyOwner {
+        uint256 oldPrice = price;
+        price = uint256(newPrice);
+        emit PriceUpdated(oldPrice, price);
+    }
+
+    /**
      * @notice Get the latest price (Chainlink-compatible interface)
      * @return roundId Round ID (always 1 for mock)
      * @return answer Price in 8-decimal format
