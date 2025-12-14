@@ -153,8 +153,18 @@ describe("IndexPriceFeed", function () {
     it("Should revert if any feed is stale", async function () {
       const { owner, indexPriceFeed, ethPriceFeed, maxHeartbeat } = await loadFixture(deployFixture);
 
-      // Fast-forward time beyond max heartbeat
-      await time.increase(maxHeartbeat + 1);
+      // Get the current timestamp
+      const currentTime = await time.latest();
+      
+      // Set the feed's timestamp to be older than maxHeartbeat
+      // This simulates a stale feed that hasn't been updated
+      await ethPriceFeed.setPriceWithTimestamp(
+        await ethPriceFeed.price(),
+        currentTime - maxHeartbeat - 1
+      );
+
+      // Fast-forward time to make the feed stale
+      await time.increase(1);
 
       await expect(indexPriceFeed.latestAnswer()).to.be.revertedWith("IndexPriceFeed: stale price");
     });

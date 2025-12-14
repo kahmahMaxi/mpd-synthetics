@@ -11,6 +11,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
  */
 contract MockPriceFeed is Ownable {
     uint256 public price;
+    uint256 public updatedTimestamp; // Timestamp for the price update
     uint8 public constant decimals = 8;
 
     event PriceUpdated(uint256 oldPrice, uint256 newPrice);
@@ -20,6 +21,7 @@ contract MockPriceFeed is Ownable {
      */
     constructor(uint256 initialPrice) {
         price = initialPrice;
+        updatedTimestamp = block.timestamp;
         emit PriceUpdated(0, initialPrice);
     }
 
@@ -30,6 +32,19 @@ contract MockPriceFeed is Ownable {
     function setPrice(uint256 newPrice) external onlyOwner {
         uint256 oldPrice = price;
         price = newPrice;
+        updatedTimestamp = block.timestamp;
+        emit PriceUpdated(oldPrice, newPrice);
+    }
+    
+    /**
+     * @notice Update the price and timestamp (for testing stale price scenarios)
+     * @param newPrice New price in 8-decimal format
+     * @param newTimestamp Timestamp to set for the price update
+     */
+    function setPriceWithTimestamp(uint256 newPrice, uint256 newTimestamp) external onlyOwner {
+        uint256 oldPrice = price;
+        price = newPrice;
+        updatedTimestamp = newTimestamp;
         emit PriceUpdated(oldPrice, newPrice);
     }
 
@@ -41,6 +56,7 @@ contract MockPriceFeed is Ownable {
     function setAnswer(int256 newPrice) external onlyOwner {
         uint256 oldPrice = price;
         price = uint256(newPrice);
+        updatedTimestamp = block.timestamp;
         emit PriceUpdated(oldPrice, price);
     }
 
@@ -48,8 +64,8 @@ contract MockPriceFeed is Ownable {
      * @notice Get the latest price (Chainlink-compatible interface)
      * @return roundId Round ID (always 1 for mock)
      * @return answer Price in 8-decimal format
-     * @return startedAt Timestamp when round started (block timestamp)
-     * @return updatedAt Timestamp when round was updated (block timestamp)
+     * @return startedAt Timestamp when round started (stored timestamp)
+     * @return updatedAt Timestamp when round was updated (stored timestamp)
      * @return answeredInRound Round ID (always 1 for mock)
      */
     function latestRoundData()
@@ -63,7 +79,7 @@ contract MockPriceFeed is Ownable {
             uint80 answeredInRound
         )
     {
-        return (1, int256(price), block.timestamp, block.timestamp, 1);
+        return (1, int256(price), updatedTimestamp, updatedTimestamp, 1);
     }
 
     /**
