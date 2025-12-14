@@ -242,13 +242,18 @@ contract IndexPriceFeed is IPriceFeed, Ownable {
             IPriceFeed feed = IPriceFeed(asset.feedAddress);
 
             // Get latest round data from Chainlink feed
-            (
-                uint80 /* roundId */,
-                int256 price,
-                uint256 /* startedAt */,
-                uint256 updatedAt,
-                uint80 /* answeredInRound */
-            ) = feed.latestRoundData();
+            uint80 roundId;
+            int256 price;
+            uint256 startedAt;
+            uint256 updatedAt;
+            uint80 answeredInRound;
+            
+            (roundId, price, startedAt, updatedAt, answeredInRound) = feed.latestRoundData();
+            
+            // Suppress unused variable warnings
+            roundId;
+            startedAt;
+            answeredInRound;
 
             // Safety checks
             require(price > 0, "IndexPriceFeed: non-positive price");
