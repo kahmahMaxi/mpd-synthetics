@@ -40,7 +40,20 @@ async function main() {
     indexToken = await get("IndexToken");
     console.log(`✅ IndexToken: ${indexToken.address}`);
   } catch (error: any) {
-    throw new Error(`Failed to load IndexToken. Ensure it's deployed first. Error: ${error.message}`);
+    // If deployment not found, try to use address from environment variable
+    const indexTokenAddress = process.env.INDEX_TOKEN_ADDRESS;
+    if (indexTokenAddress) {
+      console.log(`⚠️  IndexToken deployment not found, using address from INDEX_TOKEN_ADDRESS env var`);
+      console.log(`✅ IndexToken: ${indexTokenAddress}`);
+      indexToken = { address: indexTokenAddress };
+    } else {
+      throw new Error(
+        `Failed to load IndexToken. Ensure it's deployed first.\n` +
+        `   Option 1: Run: npx hardhat deploy --tags IndexToken --network arbitrumSepolia\n` +
+        `   Option 2: Set INDEX_TOKEN_ADDRESS env var with the deployed address\n` +
+        `   Error: ${error.message}`
+      );
+    }
   }
 
   // Load IndexPriceFeed
@@ -49,7 +62,20 @@ async function main() {
     indexPriceFeed = await get("IndexPriceFeed");
     console.log(`✅ IndexPriceFeed: ${indexPriceFeed.address}`);
   } catch (error: any) {
-    throw new Error(`Failed to load IndexPriceFeed. Ensure it's deployed first. Error: ${error.message}`);
+    // If deployment not found, try to use address from environment variable
+    const indexPriceFeedAddress = process.env.INDEX_PRICE_FEED_ADDRESS;
+    if (indexPriceFeedAddress) {
+      console.log(`⚠️  IndexPriceFeed deployment not found, using address from INDEX_PRICE_FEED_ADDRESS env var`);
+      console.log(`✅ IndexPriceFeed: ${indexPriceFeedAddress}`);
+      indexPriceFeed = { address: indexPriceFeedAddress };
+    } else {
+      throw new Error(
+        `Failed to load IndexPriceFeed. Ensure it's deployed first.\n` +
+        `   Option 1: Run: npx hardhat deploy --tags IndexPriceFeed --network arbitrumSepolia\n` +
+        `   Option 2: Set INDEX_PRICE_FEED_ADDRESS env var with the deployed address\n` +
+        `   Error: ${error.message}`
+      );
+    }
   }
 
   // =====================================================

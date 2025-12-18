@@ -25,11 +25,13 @@ const func = async ({ getNamedAccounts, deployments, network }: HardhatRuntimeEn
     BTC_USD: "0x56a43EB56Da12C0dc1D972ACb089c06a5dEF8e69", // BTC / USD
     // Note: AAVE, CRV, UNI, LDO feeds may not be available on Arbitrum Sepolia
     // For production, use mainnet feeds or deploy mock feeds for testing
-    // These are placeholder addresses - update with actual Chainlink feed addresses
-    AAVE_USD: "0x0000000000000000000000000000000000000000", // TODO: Add real AAVE/USD feed
-    CRV_USD: "0x0000000000000000000000000000000000000000", // TODO: Add real CRV/USD feed
-    UNI_USD: "0x0000000000000000000000000000000000000000", // TODO: Add real UNI/USD feed
-    LDO_USD: "0x0000000000000000000000000000000000000000", // TODO: Add real LDO/USD feed
+    // updated Chainlink feed addresses
+    AAVE_USD: "0x20b1061Acd37302925D9A8c3fD94eb765039dBd5", // real AAVE/USD feed
+    // CRV_USD: "0x0000000000000000000000000000000000000000", // real CRV/USD feed(not available on Arbitrum Sepolia-i'll replace with-ASTR)
+    ASTR_USD: "0x902ac56C78058f6DE82C0610a851017901280217", // real ASTR/USD feed
+    UNI_USD: "0x850A128C3f67C3D13B58a88AC2f4742D90705c0a", // real UNI/USD feed
+    // LDO_USD: "0x0000000000000000000000000000000000000000", // real LDO/USD feed(not available on Arbitrum Sepolia-i'll replace with-AVAX)
+    AVAX_USD: "0xe27498c9Cc8541033F265E63c8C29A97CfF9aC6D", // real AVAX/USD feed
   };
 
   let feeds: string[];
@@ -39,13 +41,13 @@ const func = async ({ getNamedAccounts, deployments, network }: HardhatRuntimeEn
   if (isLocalNetwork) {
     // For localhost, use MockPriceFeed contracts
     // Deploy mock feeds if they don't exist
-    const mockFeeds = ["ETH", "AAVE", "CRV", "UNI", "LDO"];
+    const mockFeeds = ["ETH", "AAVE", "ASTR", "UNI", "AVAX"];
     const mockPrices = [
       expandDecimals(2000, 8), // ETH: $2000
       expandDecimals(100, 8), // AAVE: $100
-      expandDecimals(1, 8), // CRV: $1
+      expandDecimals(1, 8), // ASTR: $1
       expandDecimals(10, 8), // UNI: $10
-      expandDecimals(2, 8), // LDO: $2
+      expandDecimals(2, 8), // AVAX: $2
     ];
 
     feeds = [];
@@ -64,7 +66,7 @@ const func = async ({ getNamedAccounts, deployments, network }: HardhatRuntimeEn
       feeds.push(deployment.address);
     }
 
-    // Weights: ETH 40%, AAVE 20%, CRV 15%, UNI 15%, LDO 10%
+    // Weights: ETH 40%, AAVE 20%, ASTR 15%, UNI 15%, AVAX 10%
     weights = [
       expandDecimals(40, 16).toString(), // 0.4 * 1e18 = 4e17
       expandDecimals(20, 16).toString(), // 0.2 * 1e18 = 2e17
@@ -87,12 +89,12 @@ const func = async ({ getNamedAccounts, deployments, network }: HardhatRuntimeEn
     feeds = [
       ARBITRUM_SEPOLIA_FEEDS.ETH_USD,
       ARBITRUM_SEPOLIA_FEEDS.AAVE_USD,
-      ARBITRUM_SEPOLIA_FEEDS.CRV_USD,
+      ARBITRUM_SEPOLIA_FEEDS.ASTR_USD,
       ARBITRUM_SEPOLIA_FEEDS.UNI_USD,
-      ARBITRUM_SEPOLIA_FEEDS.LDO_USD,
+      ARBITRUM_SEPOLIA_FEEDS.AVAX_USD,
     ];
 
-    // Weights: ETH 40%, AAVE 20%, CRV 15%, UNI 15%, LDO 10%
+    // Weights: ETH 40%, AAVE 20%, ASTR 15%, UNI 15%, AVAX 10%
     weights = [
       expandDecimals(40, 16).toString(), // 0.4 * 1e18
       expandDecimals(20, 16).toString(), // 0.2 * 1e18
@@ -120,7 +122,7 @@ const func = async ({ getNamedAccounts, deployments, network }: HardhatRuntimeEn
     contract: "contracts/oracle/IndexPriceFeed.sol:IndexPriceFeed",
     args: [
       "DeFi-5 Index", // name
-      "DeFi-5 Index: ETH 40%, AAVE 20%, CRV 15%, UNI 15%, LDO 10%", // description
+      "DeFi-5 Index: ETH 40%, AAVE 20%, ASTR 15%, UNI 15%, AVAX 10%", // description
       feeds,
       weights,
       maxHeartbeats,
