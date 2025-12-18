@@ -52,14 +52,20 @@ const MPD_DEPLOYMENTS_PATH = path.resolve(__dirname, "..", "..", "mpd-token", "d
 // Load ABIs from mpd-token artifacts
 function loadMpdTokenAbi(contractName: string): any[] {
   const artifactPath = path.resolve(
-    __dirname, "..", "..", "mpd-token", "artifacts", "contracts", 
-    `${contractName}.sol`, `${contractName}.json`
+    __dirname,
+    "..",
+    "..",
+    "mpd-token",
+    "artifacts",
+    "contracts",
+    `${contractName}.sol`,
+    `${contractName}.json`
   );
-  
+
   if (!fs.existsSync(artifactPath)) {
     throw new Error(`Artifact not found: ${artifactPath}. Did you compile mpd-token?`);
   }
-  
+
   const artifact = JSON.parse(fs.readFileSync(artifactPath, "utf8"));
   return artifact.abi;
 }
@@ -119,8 +125,8 @@ async function main() {
     if (mpdCode === "0x" || esMpdCode === "0x" || vesterCode === "0x") {
       throw new Error(
         "MPD contracts not found on-chain. Please deploy mpd-token first:\n" +
-        `  cd ../mpd-token\n` +
-        `  npx hardhat run scripts/deploy.js --network ${hre.network.name}`
+          `  cd ../mpd-token\n` +
+          `  npx hardhat run scripts/deploy.js --network ${hre.network.name}`
       );
     }
 
@@ -420,7 +426,9 @@ async function main() {
     await usdcContract.connect(testUser).approve(exchangeRouter.address, swapAmount);
 
     // Find swap-only market (WETH-USDC)
-    const swapMarketConfig = marketConfigs.find((m) => m.config.marketTokenSymbol.includes("WETH") && m.config.indexTokenSymbol === "");
+    const swapMarketConfig = marketConfigs.find(
+      (m) => m.config.marketTokenSymbol.includes("WETH") && m.config.indexTokenSymbol === ""
+    );
     if (!swapMarketConfig) {
       // Use any market for swap
       const ethMarketAddress = deployedMarkets["ETH-USD"] || deployedMarkets["WETH-USD"];
@@ -514,7 +522,7 @@ async function main() {
   try {
     const dataStoreContract = await hre.ethers.getContractAt("DataStore", dataStore.address);
 
-    let allValid = true;
+    const allValid = true;
 
     // Check market addresses (markets are stored in MARKET_LIST)
     const marketCount = await dataStoreContract.getAddressCount(keys.MARKET_LIST);
@@ -588,4 +596,3 @@ main()
     console.error("Fatal error:", error);
     process.exit(1);
   });
-

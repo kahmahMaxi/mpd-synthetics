@@ -32,7 +32,7 @@ interface DeploymentData {
 }
 
 // Determine source file name
-const sourceFileName: string = `${network}.json`;
+const sourceFileName = `${network}.json`;
 const sourcePath: string = path.join(mpdTokenDeploymentsDir, sourceFileName);
 
 console.log("=".repeat(60));
@@ -107,4 +107,3 @@ console.log(JSON.stringify(config, null, 2));
 console.log("\n" + "=".repeat(60));
 
 // --- MPD Integration End ---
-
