@@ -2,8 +2,8 @@
 
 **Network Type:** Testnet  
 **Chain ID:** 421614  
-**Total Contracts:** 135  
-**Last Updated:** Nov 17, 2025, 08:47 AM UTC
+**Total Contracts:** 137  
+**Last Updated:** Dec 18, 2025, 06:09 AM UTC
 
 ## Deployed Contracts
 
@@ -76,6 +76,8 @@
 | IncreaseOrderExecutor | `0x4dD282BfaDE7ad8809Dd3a3F99C6A49A338d1756` | [View on Explorer](https://sepolia.arbiscan.io/address/0x4dD282BfaDE7ad8809Dd3a3F99C6A49A338d1756) |
 | IncreaseOrderUtils | `0x2Ce4C21B46fECa23822F0d75414Cd711D015ba82` | [View on Explorer](https://sepolia.arbiscan.io/address/0x2Ce4C21B46fECa23822F0d75414Cd711D015ba82) |
 | IncreasePositionUtils | `0xFe25514FAA9136722EeBf9fb8fbb6036F3CE1D8e` | [View on Explorer](https://sepolia.arbiscan.io/address/0xFe25514FAA9136722EeBf9fb8fbb6036F3CE1D8e) |
+| IndexPriceFeed | `0xDBb2Ec662Fe2c6Ea2466d596F6Cd5b37e7B2c67b` | [View on Explorer](https://sepolia.arbiscan.io/address/0xDBb2Ec662Fe2c6Ea2466d596F6Cd5b37e7B2c67b) |
+| IndexToken | `0x1103044Aef74C77F8d9403cC3f20dEA6ac1A95eA` | [View on Explorer](https://sepolia.arbiscan.io/address/0x1103044Aef74C77F8d9403cC3f20dEA6ac1A95eA) |
 | JitOrderHandler | `0x1010fFe7cfeb449fC715BA3982F4F7E75B2e5F4B` | [View on Explorer](https://sepolia.arbiscan.io/address/0x1010fFe7cfeb449fC715BA3982F4F7E75B2e5F4B) |
 | LayerZeroProvider | `0x2E3d6B4c471C50983F21b54d3Ed8e3dAC7dAFF2e` | [View on Explorer](https://sepolia.arbiscan.io/address/0x2E3d6B4c471C50983F21b54d3Ed8e3dAC7dAFF2e) |
 | LiquidationHandler | `0x268FA5c1dafeefd5E7Bc31CF517c780cb36E7a84` | [View on Explorer](https://sepolia.arbiscan.io/address/0x268FA5c1dafeefd5E7Bc31CF517c780cb36E7a84) |
