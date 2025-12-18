@@ -36,11 +36,6 @@
       "txHash": "0xbe938f43c21b356f7775c2ba90ca9ec9ba77022cf17054c0d928f8d8d0f42707"
     },
     {
-      "contractName": "ChainReader",
-      "contractAddress": "0xc196Dd186Fd6A62c7d98D45C566d44Cc4745583D",
-      "txHash": "0x5d7bbeadcb3acb44686ff49060ed7c3e722cb6accbfa27788449e4ce3bb5d602"
-    },
-    {
       "contractName": "ChainlinkDataStreamProvider",
       "contractAddress": "0xE1d5a068c5b75E0c7Ea1A9Fe8EA056f9356C6fFD",
       "txHash": "0x228a4654536be28dc6c979294339641bbec8dc30619883ea35384ab709d84880"
@@ -49,6 +44,11 @@
       "contractName": "ChainlinkPriceFeedProvider",
       "contractAddress": "0x38B8dB61b724b51e42A88Cb8eC564CD685a0f53B",
       "txHash": "0x0810ad794e932565777baa493c8e92005c561e65eae4f0f313def33128e458f3"
+    },
+    {
+      "contractName": "ChainReader",
+      "contractAddress": "0xc196Dd186Fd6A62c7d98D45C566d44Cc4745583D",
+      "txHash": "0x5d7bbeadcb3acb44686ff49060ed7c3e722cb6accbfa27788449e4ce3bb5d602"
     },
     {
       "contractName": "ClaimHandler",
@@ -728,11 +728,6 @@
       "txHash": "0xe99232d3c4218ace0a58ad8ebf7c0f187004d794098e18d4a4fa220aa2aeb965"
     },
     {
-      "contractName": "ChainReader",
-      "contractAddress": "0x8eee0064C7d02F9c32d3C6227e557e3AC7096723",
-      "txHash": "0x1257fdf22daa2811f25f8e34a4a63e0c6141b55d4c1fea97139ed4fb3ccd801f"
-    },
-    {
       "contractName": "ChainlinkDataStreamProvider",
       "contractAddress": "0xC181eB022F33b8ba808AD96348B03e8A753A859b",
       "txHash": "0x564364631ff577062edb2f1bb7709036ec6cadc311c63feaaa2fe2744c55754c"
@@ -741,6 +736,11 @@
       "contractName": "ChainlinkPriceFeedProvider",
       "contractAddress": "0x05d97cee050bfb81FB3EaD4A9368584F8e72C88e",
       "txHash": "0x4766693614112e77a97c375c218a011c1759d833a9f12e1c6f23c76f67a289b2"
+    },
+    {
+      "contractName": "ChainReader",
+      "contractAddress": "0x8eee0064C7d02F9c32d3C6227e557e3AC7096723",
+      "txHash": "0x1257fdf22daa2811f25f8e34a4a63e0c6141b55d4c1fea97139ed4fb3ccd801f"
     },
     {
       "contractName": "ClaimHandler",
@@ -1415,11 +1415,6 @@
       "txHash": "0x2808ded45b115fdc6e539e74d9637b8431cef573a513ca3b4990c652e7800cf8"
     },
     {
-      "contractName": "ChainReader",
-      "contractAddress": "0xcF2232B997492bFC63da9aB2dC15be1586A12E75",
-      "txHash": "0x06ec92d1fea4097a409ae009fc57345dc60eaacfccf81920a86ff6618b6fc67d"
-    },
-    {
       "contractName": "ChainlinkDataStreamProvider",
       "contractAddress": "0x1A4D623301b9f58405d3Fff7a63624411d5eb940",
       "txHash": "0x4124f94103faee8baafae6fcce033adf4f46ea5331999d80986ee2eecb7afcd2"
@@ -1428,6 +1423,11 @@
       "contractName": "ChainlinkPriceFeedProvider",
       "contractAddress": "0xDc613305e9267f0770072dEaB8c03162e0554b2d",
       "txHash": "0x31bd52b1f030dfd21a613329191c70ab33510206a89bbf55ba439e85a6d58b48"
+    },
+    {
+      "contractName": "ChainReader",
+      "contractAddress": "0xcF2232B997492bFC63da9aB2dC15be1586A12E75",
+      "txHash": "0x06ec92d1fea4097a409ae009fc57345dc60eaacfccf81920a86ff6618b6fc67d"
     },
     {
       "contractName": "ClaimHandler",
