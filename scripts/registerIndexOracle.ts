@@ -8,6 +8,7 @@
 import hre from "hardhat";
 import * as keys from "../utils/keys";
 import { setAddressIfDifferent } from "../utils/dataStore";
+import { hashString } from "../utils/hash";
 
 async function main() {
   console.log("══════════════════════════════════════════════════════════════════════");
@@ -49,9 +50,9 @@ async function main() {
     } else {
       throw new Error(
         `Failed to load IndexToken. Ensure it's deployed first.\n` +
-        `   Option 1: Run: npx hardhat deploy --tags IndexToken --network arbitrumSepolia\n` +
-        `   Option 2: Set INDEX_TOKEN_ADDRESS env var with the deployed address\n` +
-        `   Error: ${error.message}`
+          `   Option 1: Run: npx hardhat deploy --tags IndexToken --network arbitrumSepolia\n` +
+          `   Option 2: Set INDEX_TOKEN_ADDRESS env var with the deployed address\n` +
+          `   Error: ${error.message}`
       );
     }
   }
@@ -71,17 +72,72 @@ async function main() {
     } else {
       throw new Error(
         `Failed to load IndexPriceFeed. Ensure it's deployed first.\n` +
-        `   Option 1: Run: npx hardhat deploy --tags IndexPriceFeed --network arbitrumSepolia\n` +
-        `   Option 2: Set INDEX_PRICE_FEED_ADDRESS env var with the deployed address\n` +
-        `   Error: ${error.message}`
+          `   Option 1: Run: npx hardhat deploy --tags IndexPriceFeed --network arbitrumSepolia\n` +
+          `   Option 2: Set INDEX_PRICE_FEED_ADDRESS env var with the deployed address\n` +
+          `   Error: ${error.message}`
       );
     }
   }
 
   // =====================================================
-  // STEP 2: Safety Checks
+  // STEP 2: Grant CONTROLLER Role (if needed)
   // =====================================================
-  console.log("\n🔍 Performing safety checks...\n");
+  console.log("\n🔐 Checking deployer permissions...\n");
+
+  // Load RoleStore
+  let roleStore;
+  try {
+    roleStore = await get("RoleStore");
+    console.log(`✅ RoleStore: ${roleStore.address}`);
+  } catch (error: any) {
+    throw new Error(`Failed to load RoleStore: ${error.message}`);
+  }
+
+  const roleStoreContract = await hre.ethers.getContractAt("RoleStore", roleStore.address);
+  const CONTROLLER_ROLE = hashString("CONTROLLER");
+  const hasControllerRole = await roleStoreContract.hasRole(deployer, CONTROLLER_ROLE);
+
+  if (!hasControllerRole) {
+    console.log("⚠️  Deployer does not have CONTROLLER role.\n");
+
+    // Check if deployer has ROLE_ADMIN to grant roles
+    const ROLE_ADMIN = hashString("ROLE_ADMIN");
+    const hasRoleAdmin = await roleStoreContract.hasRole(deployer, ROLE_ADMIN);
+
+    if (hasRoleAdmin) {
+      console.log("✅ Deployer has ROLE_ADMIN role. Granting CONTROLLER role...\n");
+      try {
+        const grantTx = await roleStoreContract.grantRole(deployer, CONTROLLER_ROLE);
+        console.log(`   Transaction: ${grantTx.hash}`);
+        await grantTx.wait();
+        console.log("✅ CONTROLLER role granted to deployer\n");
+      } catch (error: any) {
+        throw new Error(
+          `❌ Failed to grant CONTROLLER role: ${error.message}\n` +
+            `   Ensure deployer has ROLE_ADMIN role or contact an admin to grant CONTROLLER role.`
+        );
+      }
+    } else {
+      console.log("❌ Deployer does not have ROLE_ADMIN role.\n");
+      console.log("📋 To fix this, run the configureRoles deployment script:\n");
+      console.log(`   npx hardhat deploy --tags Roles --network arbitrumSepolia\n`);
+      console.log("   This will grant CONTROLLER role to deployer based on config/roles.ts\n");
+      console.log(`   Deployer: ${deployer}`);
+      console.log(`   RoleStore: ${roleStore.address}\n`);
+
+      throw new Error(
+        `Deployer (${deployer}) needs CONTROLLER role to register oracle.\n` +
+          `Run: npx hardhat deploy --tags Roles --network arbitrumSepolia`
+      );
+    }
+  } else {
+    console.log("✅ Deployer already has CONTROLLER role\n");
+  }
+
+  // =====================================================
+  // STEP 3: Safety Checks
+  // =====================================================
+  console.log("🔍 Performing safety checks...\n");
 
   // Check for zero addresses
   if (!indexToken.address || indexToken.address === hre.ethers.constants.AddressZero) {
@@ -114,7 +170,7 @@ async function main() {
   }
 
   // =====================================================
-  // STEP 3: Register Oracle in DataStore
+  // STEP 4: Register Oracle in DataStore
   // =====================================================
   console.log("📝 Registering IndexPriceFeed in DataStore...\n");
   console.log(`   Token:        ${indexToken.address}`);
@@ -122,24 +178,20 @@ async function main() {
   console.log(`   Key:          ${priceFeedKey}\n`);
 
   try {
-    await setAddressIfDifferent(
-      priceFeedKey,
-      indexPriceFeed.address,
-      `price feed for IndexToken (DFI)`
-    );
+    await setAddressIfDifferent(priceFeedKey, indexPriceFeed.address, `price feed for IndexToken (DFI)`);
     console.log("✅ Oracle registered successfully!\n");
   } catch (error: any) {
     if (error.message.includes("permission") || error.message.includes("role")) {
       throw new Error(
         `❌ Permission denied. Ensure deployer (${deployer}) has CONTROLLER role in DataStore.\n` +
-        `   Error: ${error.message}`
+          `   Error: ${error.message}`
       );
     }
     throw new Error(`❌ Failed to register oracle: ${error.message}`);
   }
 
   // =====================================================
-  // STEP 4: Verification
+  // STEP 5: Verification
   // =====================================================
   console.log("🔍 Verifying registration...\n");
 
@@ -151,15 +203,11 @@ async function main() {
     console.log(`✅ Verification successful!`);
     console.log(`   Registered oracle: ${registeredOracle}\n`);
   } else {
-    throw new Error(
-      `❌ Verification failed!\n` +
-      `   Expected: ${expectedOracle}\n` +
-      `   Got:      ${actualOracle}`
-    );
+    throw new Error(`❌ Verification failed!\n` + `   Expected: ${expectedOracle}\n` + `   Got:      ${actualOracle}`);
   }
 
   // =====================================================
-  // STEP 5: Summary
+  // STEP 6: Summary
   // =====================================================
   console.log("══════════════════════════════════════════════════════════════════════");
   console.log(" REGISTRATION SUMMARY");
@@ -191,4 +239,3 @@ main()
     console.error(error);
     process.exit(1);
   });
-

@@ -159,7 +159,8 @@ export default async function (hre: HardhatRuntimeEnvironment): Promise<RolesCon
   };
 
   const testnetConfig = {
-    CONTROLLER: testnetAdmins,
+    // CONTROLLER is now configured per-network (see arbitrumSepolia below)
+    // CONTROLLER: testnetAdmins,
     ORDER_KEEPER: {
       "0x3053c7edC20aa08d225CdeC9688136c4ab9F9963": true,
       "0x508cbC56Ab57A9b0221cf1810a483f8013c92Ff3": true, // An
@@ -249,10 +250,17 @@ export default async function (hre: HardhatRuntimeEnvironment): Promise<RolesCon
         [deployer]: true,
       },
       ROLE_ADMIN: {
-        "0xCD9706B6B71fdC4351091B5b1D910cEe7Fde28D0": true, // Max
-        "0x508cbC56Ab57A9b0221cf1810a483f8013c92Ff3": true, // An
+        [deployer]: true, // Your deployer address - add yourself as ROLE_ADMIN
+        // Original GMX team addresses (commented out since you don't have access)
+        // "0xCD9706B6B71fdC4351091B5b1D910cEe7Fde28D0": true, // Max
+        // "0x508cbC56Ab57A9b0221cf1810a483f8013c92Ff3": true, // An
       },
       ...testnetConfig,
+      // Override CONTROLLER to include deployer (must come after ...testnetConfig)
+      CONTROLLER: {
+        ...testnetAdmins,
+        [deployer]: true, // Add deployer to CONTROLLER role for testnet operations
+      },
     },
   };
 
