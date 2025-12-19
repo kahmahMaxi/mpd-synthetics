@@ -8,6 +8,7 @@
 import hre from "hardhat";
 import * as keys from "../utils/keys";
 import { DEFAULT_MARKET_TYPE, getMarketKey, getOnchainMarkets } from "../utils/market";
+import { hashString } from "../utils/hash";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -114,7 +115,7 @@ async function main() {
   // Check token decimals
   const indexTokenContract = await hre.ethers.getContractAt("IndexToken", indexToken.address);
   const indexTokenDecimals = await indexTokenContract.decimals();
-  
+
   if (indexTokenDecimals !== 18) {
     throw new Error(`❌ IndexToken must have 18 decimals, got ${indexTokenDecimals}`);
   }
@@ -134,8 +135,8 @@ async function main() {
   if (!registeredOracle || registeredOracle === hre.ethers.constants.AddressZero) {
     throw new Error(
       `❌ Oracle not registered for IndexToken. Run registerIndexOracle.ts first.\n` +
-      `   Token: ${indexToken.address}\n` +
-      `   Key: ${priceFeedKey}`
+        `   Token: ${indexToken.address}\n` +
+        `   Key: ${priceFeedKey}`
     );
   }
   console.log(`✅ Oracle registered: ${registeredOracle}`);
@@ -152,21 +153,41 @@ async function main() {
     console.log(`   Long Token: ${existingMarket.longToken}`);
     console.log(`   Short Token: ${existingMarket.shortToken}`);
     console.log(`\n   Skipping market creation.\n`);
-    
+
     // Print summary with existing market
-    printSummary(
-      indexToken.address,
-      usdcAddress,
-      existingMarket.marketToken,
-      marketKey,
-      true
-    );
+    printSummary(indexToken.address, usdcAddress, existingMarket.marketToken, marketKey, true);
     return;
   }
   console.log("✅ Market does not exist yet\n");
 
   // =====================================================
-  // STEP 3: Create Market
+  // STEP 3: Verify MARKET_KEEPER Role
+  // =====================================================
+  console.log("🔐 Verifying MARKET_KEEPER role...\n");
+
+  const roleStore = await get("RoleStore");
+  const roleStoreContract = await hre.ethers.getContractAt("RoleStore", roleStore.address);
+  const MARKET_KEEPER_ROLE = hashString("MARKET_KEEPER");
+  const hasMarketKeeper = await roleStoreContract.hasRole(deployer, MARKET_KEEPER_ROLE);
+
+  if (!hasMarketKeeper) {
+    console.log("⚠️  Deployer does not have MARKET_KEEPER role. Granting...\n");
+    const ROLE_ADMIN = hashString("ROLE_ADMIN");
+    const hasRoleAdmin = await roleStoreContract.hasRole(deployer, ROLE_ADMIN);
+
+    if (hasRoleAdmin) {
+      const grantTx = await roleStoreContract.grantRole(deployer, MARKET_KEEPER_ROLE);
+      await grantTx.wait();
+      console.log("✅ MARKET_KEEPER role granted\n");
+    } else {
+      throw new Error("Deployer needs MARKET_KEEPER role but doesn't have ROLE_ADMIN to grant it");
+    }
+  } else {
+    console.log("✅ Deployer has MARKET_KEEPER role\n");
+  }
+
+  // =====================================================
+  // STEP 4: Create Market
   // =====================================================
   console.log("📝 Creating market...\n");
   console.log(`   Market Name: DFI / USDC`);
@@ -186,16 +207,90 @@ async function main() {
       DEFAULT_MARKET_TYPE
     );
 
-    console.log(`✅ Market creation transaction: ${tx.transactionHash}\n`);
-
-    // Wait for transaction to be mined
-    await tx.wait();
+    // execute() already waits for the transaction, so we just log the hash
+    const txHash = tx.transactionHash || tx.hash || "unknown";
+    console.log(`✅ Market creation transaction: ${txHash}\n`);
     console.log("✅ Transaction confirmed\n");
   } catch (error: any) {
-    if (error.message.includes("already exists") || error.message.includes("MarketTokenAlreadyExists")) {
-      console.log(`⚠️  Market may already exist. Checking DataStore...\n`);
+    // Extract error data from nested structure (ethers wraps errors)
+    const errorData = error.data || error.error?.data || error.reason?.data || "";
+    const errorMessage = error.message || error.error?.message || error.reason?.message || "";
+
+    // Check if error is MarketAlreadyExists
+    const isMarketExistsError =
+      errorMessage.includes("already exists") ||
+      errorMessage.includes("MarketTokenAlreadyExists") ||
+      errorMessage.includes("MarketAlreadyExists") ||
+      (typeof errorData === "string" && errorData.includes("0x25e34fa1"));
+
+    if (isMarketExistsError) {
+      console.log(`⚠️  Market already exists! Extracting market address from error...\n`);
+
+      // Try to extract market address from error data
+      // Error format: MarketAlreadyExists(bytes32 salt, address existingMarketAddress)
+      // Error selector: 0x25e34fa1 (4 bytes) + salt (32 bytes) + address (32 bytes, last 20 bytes are the address)
+      let marketAddress = null;
+      if (typeof errorData === "string" && errorData.length >= 138) {
+        // Extract address from last 40 hex chars (20 bytes)
+        marketAddress = "0x" + errorData.slice(-40);
+        console.log(`   Existing Market Token: ${marketAddress}\n`);
+      }
+
+      // Verify the market exists in DataStore
+      try {
+        const updatedMarkets = await getOnchainMarkets(read, dataStore.address);
+        const foundMarket = Object.values(updatedMarkets).find((m: any) => {
+          if (marketAddress) {
+            return m.marketToken.toLowerCase() === marketAddress.toLowerCase();
+          }
+          // If we couldn't extract address, check by market key
+          return (
+            m.indexToken.toLowerCase() === indexToken.address.toLowerCase() &&
+            m.longToken.toLowerCase() === usdcAddress.toLowerCase() &&
+            m.shortToken.toLowerCase() === usdcAddress.toLowerCase()
+          );
+        });
+
+        if (foundMarket) {
+          console.log(`✅ Found existing market in DataStore!`);
+          console.log(`   Market Token (GM): ${foundMarket.marketToken}`);
+          console.log(`   Index Token: ${foundMarket.indexToken}`);
+          console.log(`   Long Token: ${foundMarket.longToken}`);
+          console.log(`   Short Token: ${foundMarket.shortToken}\n`);
+
+          // Print summary and return
+          printSummary(indexToken.address, usdcAddress, foundMarket.marketToken, marketKey, true);
+          return;
+        }
+      } catch (verifyError: any) {
+        console.log(`⚠️  Could not verify market: ${verifyError.message}\n`);
+      }
+
+      if (marketAddress) {
+        console.log(`⚠️  Market exists at ${marketAddress} but not found in DataStore query.`);
+        console.log(`   This may be a timing issue. Market was likely created successfully.\n`);
+
+        // Print summary with the address we extracted
+        printSummary(indexToken.address, usdcAddress, marketAddress, marketKey, true);
+        return;
+      }
+
+      console.log(`⚠️  Market exists but could not extract address. Skipping creation.\n`);
+      return;
     } else {
-      throw new Error(`❌ Failed to create market: ${error.message}`);
+      // Check if error data contains MarketAlreadyExists selector (fallback check)
+      const errorData = error.data || error.error?.data || error.reason?.data || "";
+      if (typeof errorData === "string" && errorData.includes("0x25e34fa1")) {
+        console.log(`⚠️  Market already exists (detected from error data)! Extracting market address...\n`);
+        const marketAddress = "0x" + errorData.slice(-40);
+        console.log(`   Existing Market Token: ${marketAddress}\n`);
+
+        // Print summary with extracted address
+        printSummary(indexToken.address, usdcAddress, marketAddress, marketKey, true);
+        return;
+      }
+
+      throw new Error(`❌ Failed to create market: ${errorMessage || error.message || "Unknown error"}`);
     }
   }
 
@@ -211,8 +306,8 @@ async function main() {
   if (!createdMarket) {
     throw new Error(
       `❌ Market was created but not found in DataStore!\n` +
-      `   Market Key: ${marketKey}\n` +
-      `   This may indicate a problem with the market creation transaction.`
+        `   Market Key: ${marketKey}\n` +
+        `   This may indicate a problem with the market creation transaction.`
     );
   }
 
@@ -238,13 +333,7 @@ async function main() {
   // =====================================================
   // STEP 5: Summary
   // =====================================================
-  printSummary(
-    indexToken.address,
-    usdcAddress,
-    createdMarket.marketToken,
-    marketKey,
-    false
-  );
+  printSummary(indexToken.address, usdcAddress, createdMarket.marketToken, marketKey, false);
 }
 
 function printSummary(
@@ -292,4 +381,3 @@ main()
     console.error(error);
     process.exit(1);
   });
-
