@@ -1443,6 +1443,29 @@ const config: {
         heartbeatDuration: 144 * 60 * 60,
       },
     },
+    DFI: {
+      address: "0xe373519B1B8DAaf73FB7bC6Aaf778eAF27b66Cf5", // IndexToken (DeFi Index)
+      decimals: 18,
+      transferGasLimit: 200 * 1000,
+      priceFeed: {
+        address: "0x1FAD1595b2c6bD5551B9bb99597e389E2512f3F4", // IndexPriceFeed (registered in DataStore)
+        decimals: 8,
+        heartbeatDuration: 144 * 60 * 60,
+      },
+    },
+    USDC: {
+      address: "0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d", // USDC on Arbitrum Sepolia testnet
+      decimals: 6,
+      transferGasLimit: 200 * 1000,
+      dataStreamFeedId: "0x0003dc85e8b01946bf9dfd8b0db860129181eb6105a8c8981d9f28e00b6f60d9", // Circle USDC
+      dataStreamFeedDecimals: 18,
+      priceFeed: {
+        address: "0x0153002d20B96532C639313c2d54c3dA09109309", // Circle USDC
+        decimals: 8,
+        heartbeatDuration: 144 * 60 * 60,
+        stablePriceUsd: decimalToFloat(1),
+      },
+    },
     "USDC.SG": {
       address: "0x3253a335E7bFfB4790Aa4C25C4250d206E9b9773", // Stargate USDC
       decimals: 6,

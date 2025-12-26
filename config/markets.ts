@@ -4564,6 +4564,39 @@ const config: {
 
       atomicSwapFeeFactor: percentageToFloat("0.75%"),
     },
+    {
+      tokens: { indexToken: "DFI", longToken: "USDC", shortToken: "USDC" },
+      virtualTokenIdForIndexToken: hashString("PERP:DFI/USD"),
+
+      ...baseMarketConfig,
+      ...fundingRateConfig_Low,
+      ...borrowingRateConfig_LowMax_WithLowerBase,
+
+      reserveFactor: percentageToFloat("200%"),
+      openInterestReserveFactor: percentageToFloat("195%"),
+
+      maxLongTokenPoolAmount: expandDecimals(10_000_000, 6), // 10M USDC
+      maxShortTokenPoolAmount: expandDecimals(10_000_000, 6), // 10M USDC
+
+      maxPoolUsdForDeposit: decimalToFloat(10_000_000),
+
+      negativePositionImpactFactor: exponentToFloat("5e-7"), // Similar to WETH
+      positivePositionImpactFactor: exponentToFloat("4.5e-7"),
+
+      minPositionImpactPoolAmount: expandDecimals(10000, 18), // 10,000 DFI
+
+      negativeSwapImpactFactor: bigNumberify(0), // Zero since longToken === shortToken (both USDC)
+      positiveSwapImpactFactor: bigNumberify(0), // Zero since longToken === shortToken (both USDC)
+
+      minCollateralFactor: percentageToFloat("0.5%"), // 200x leverage
+      minCollateralFactorForLiquidation: percentageToFloat("0.25%"), // 200x leverage
+
+      minCollateralFactorForOpenInterestMultiplier: exponentToFloat("6e-11"),
+
+      maxOpenInterest: decimalToFloat(50_000_000),
+
+      atomicSwapFeeFactor: percentageToFloat("2.25%"),
+    },
   ],
   arbitrumGoerli: [
     {
@@ -5066,7 +5099,8 @@ function fillLongShortValues(market, key, longKey, shortKey) {
 export default async function (hre: HardhatRuntimeEnvironment) {
   const markets = config[hre.network.name];
   const tokens = await hre.gmx.getTokens();
-  const defaultMarketConfig = (hre.network.name === "hardhat" || hre.network.name === "localhost") ? hardhatBaseMarketConfig : baseMarketConfig;
+  const defaultMarketConfig =
+    hre.network.name === "hardhat" || hre.network.name === "localhost" ? hardhatBaseMarketConfig : baseMarketConfig;
   if (markets) {
     const seen = new Set<string>();
     for (const market of markets) {

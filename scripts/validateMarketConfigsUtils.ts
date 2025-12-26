@@ -691,6 +691,11 @@ const recommendedMarketConfig = {
       expectedSwapImpactRatio: 20_000,
       expectedPositionImpactRatio: 11_600,
     },
+    DFI: {
+      negativePositionImpactFactor: exponentToFloat("5e-7"),
+      expectedSwapImpactRatio: 20_000,
+      expectedPositionImpactRatio: 11_111,
+    },
   },
   botanix: {
     "BTC:pBTC:pBTC": {
@@ -781,7 +786,7 @@ async function validatePerpConfig({
   }
 
   console.log("validatePerpConfig", indexTokenSymbol);
-  
+
   // Skip validation for hardhat and localhost networks as they don't have recommended configs
   if (hre.network.name === "hardhat" || hre.network.name === "localhost") {
     console.log(`Skipping perp config validation for ${hre.network.name} network`);
@@ -1350,7 +1355,9 @@ export async function validateMarketConfigs() {
     // Skip validation if marketConfig is missing (for localhost, markets might be deployed without full configs)
     if (!marketConfig) {
       if (hre.network.name === "hardhat" || hre.network.name === "localhost") {
-        console.log(`   ⚠️  Skipping validation - no config found for market ${marketKey} (this is OK for local networks)`);
+        console.log(
+          `   ⚠️  Skipping validation - no config found for market ${marketKey} (this is OK for local networks)`
+        );
         continue;
       }
       errors.push({

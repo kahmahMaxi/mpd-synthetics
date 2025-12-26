@@ -50,7 +50,19 @@ async function main() {
     exchangeRouter = await get("ExchangeRouter");
     console.log(`✅ ExchangeRouter: ${exchangeRouter.address}`);
   } catch (error: any) {
-    throw new Error(`Failed to load ExchangeRouter: ${error.message}`);
+    // Fallback to environment variable
+    const exchangeRouterAddress = process.env.EXCHANGE_ROUTER_ADDRESS;
+    if (exchangeRouterAddress) {
+      console.log(`⚠️  ExchangeRouter not found in deployments, using environment variable`);
+      exchangeRouter = { address: exchangeRouterAddress };
+      console.log(`✅ ExchangeRouter: ${exchangeRouter.address}`);
+    } else {
+      throw new Error(
+        `Failed to load ExchangeRouter: ${error.message}\n` +
+          `   Either deploy ExchangeRouter first with: npx hardhat deploy --network arbitrumSepolia\n` +
+          `   Or set EXCHANGE_ROUTER_ADDRESS environment variable`
+      );
+    }
   }
 
   // Load Reader
@@ -59,7 +71,19 @@ async function main() {
     reader = await get("Reader");
     console.log(`✅ Reader: ${reader.address}`);
   } catch (error: any) {
-    throw new Error(`Failed to load Reader: ${error.message}`);
+    // Fallback to environment variable
+    const readerAddress = process.env.READER_ADDRESS;
+    if (readerAddress) {
+      console.log(`⚠️  Reader not found in deployments, using environment variable`);
+      reader = { address: readerAddress };
+      console.log(`✅ Reader: ${reader.address}`);
+    } else {
+      throw new Error(
+        `Failed to load Reader: ${error.message}\n` +
+          `   Either deploy Reader first with: npx hardhat deploy --network arbitrumSepolia\n` +
+          `   Or set READER_ADDRESS environment variable`
+      );
+    }
   }
 
   // Load DataStore
@@ -115,10 +139,10 @@ async function main() {
   if (!market) {
     throw new Error(
       `❌ Market not found! Run createIndexMarket.ts first.\n` +
-      `   Market Key: ${marketKey}\n` +
-      `   Index Token: ${indexToken.address}\n` +
-      `   Long Token: ${usdcAddress}\n` +
-      `   Short Token: ${usdcAddress}`
+        `   Market Key: ${marketKey}\n` +
+        `   Index Token: ${indexToken.address}\n` +
+        `   Long Token: ${usdcAddress}\n` +
+        `   Short Token: ${usdcAddress}`
     );
   }
 
@@ -145,9 +169,7 @@ async function main() {
   // Check oracle price (optional - just verify it's resolvable)
   const dataStoreContract = await hre.ethers.getContractAt("DataStore", dataStore.address);
   try {
-    const priceFeedKey = hre.ethers.utils.keccak256(
-      hre.ethers.utils.defaultAbiCoder.encode(["string", "address"], ["PRICE_FEED", indexToken.address])
-    );
+    const priceFeedKey = keys.priceFeedKey(indexToken.address);
     const oracleAddress = await dataStoreContract.getAddress(priceFeedKey);
     if (oracleAddress && oracleAddress !== hre.ethers.constants.AddressZero) {
       console.log(`✅ Oracle registered: ${oracleAddress}`);
@@ -163,11 +185,46 @@ async function main() {
   // =====================================================
   console.log("💰 Preparing USDC...\n");
 
-  const usdcContract = await hre.ethers.getContractAt("MintableToken", usdcAddress);
+  // Check if contract exists at address
+  const usdcCode = await hre.ethers.provider.getCode(usdcAddress);
+  if (usdcCode === "0x" || usdcCode === "0x0") {
+    throw new Error(
+      `❌ USDC contract not found at ${usdcAddress}.\n` +
+        `   Please ensure USDC is deployed or use a valid USDC address.`
+    );
+  }
+
+  // Try to use standard ERC20 interface first (more compatible)
+  const erc20Abi = [
+    "function balanceOf(address) view returns (uint256)",
+    "function allowance(address, address) view returns (uint256)",
+    "function approve(address, uint256) returns (bool)",
+    "function transfer(address, uint256) returns (bool)",
+  ];
+
+  let usdcContract;
+  try {
+    // Try standard ERC20 first
+    usdcContract = await hre.ethers.getContractAt(erc20Abi, usdcAddress);
+    await usdcContract.balanceOf(deployer); // Test call
+  } catch (error: any) {
+    // If that fails, try MintableToken
+    try {
+      usdcContract = await hre.ethers.getContractAt("MintableToken", usdcAddress);
+    } catch (error2: any) {
+      throw new Error(
+        `❌ Failed to interact with USDC at ${usdcAddress}.\n` +
+          `   Error: ${error.message}\n` +
+          `   Please verify the USDC address is correct.`
+      );
+    }
+  }
+
   const deployerUsdcBalance = await usdcContract.balanceOf(deployer);
 
-  // Deposit amount: 10,000 USDC (adjust as needed)
-  const depositAmount = expandDecimals(10000, usdcDecimals); // 10,000 USDC
+  // Deposit amount: Can be configured via DEPOSIT_AMOUNT_USDC env var, default 100 USDC (smaller for testnet)
+  const depositAmountUsdc = process.env.DEPOSIT_AMOUNT_USDC ? parseFloat(process.env.DEPOSIT_AMOUNT_USDC) : 100; // Default: 100 USDC (smaller for testnet - adjust as needed)
+  const depositAmount = expandDecimals(depositAmountUsdc, usdcDecimals);
   const depositAmountFormatted = hre.ethers.utils.formatUnits(depositAmount, usdcDecimals);
 
   console.log(`   Required: ${depositAmountFormatted} USDC`);
@@ -176,29 +233,45 @@ async function main() {
   // Mint USDC if needed (for testnet)
   if (deployerUsdcBalance.lt(depositAmount)) {
     const needed = depositAmount.sub(deployerUsdcBalance);
-    console.log(`⚠️  Insufficient USDC balance. Minting ${hre.ethers.utils.formatUnits(needed, usdcDecimals)} USDC...\n`);
+    console.log(
+      `⚠️  Insufficient USDC balance. Minting ${hre.ethers.utils.formatUnits(needed, usdcDecimals)} USDC...\n`
+    );
 
     try {
-      // Check if deployer has minter role
-      const minterRole = await usdcContract.MINTER_ROLE();
-      const isMinter = await usdcContract.hasRole(minterRole, deployer);
+      // Check if USDC is a MintableToken with MINTER_ROLE
+      const mintableTokenAbi = [
+        "function MINTER_ROLE() view returns (bytes32)",
+        "function hasRole(bytes32, address) view returns (bool)",
+        "function mint(address, uint256)",
+      ];
 
-      if (isMinter) {
-        const mintTx = await usdcContract.mint(deployer, needed);
-        await mintTx.wait();
-        console.log(`✅ Minted ${hre.ethers.utils.formatUnits(needed, usdcDecimals)} USDC\n`);
-      } else {
-        throw new Error(
-          `Deployer does not have MINTER_ROLE. Please:\n` +
-          `  1. Get USDC from a faucet, OR\n` +
-          `  2. Grant MINTER_ROLE to deployer address: ${deployer}`
-        );
+      try {
+        const mintableUsdc = await hre.ethers.getContractAt(mintableTokenAbi, usdcAddress);
+        const minterRole = await mintableUsdc.MINTER_ROLE();
+        const isMinter = await mintableUsdc.hasRole(minterRole, deployer);
+
+        if (isMinter) {
+          const mintTx = await mintableUsdc.mint(deployer, needed);
+          await mintTx.wait();
+          console.log(`✅ Minted ${hre.ethers.utils.formatUnits(needed, usdcDecimals)} USDC\n`);
+        } else {
+          throw new Error(
+            `Deployer does not have MINTER_ROLE. Please:\n` +
+              `  1. Get USDC from a faucet, OR\n` +
+              `  2. Grant MINTER_ROLE to deployer address: ${deployer}`
+          );
+        }
+      } catch (mintError: any) {
+        // Not a MintableToken or minting failed
+        console.log(`⚠️  USDC is not mintable or deployer lacks MINTER_ROLE.`);
+        console.log(`   Please ensure you have sufficient USDC balance or use a faucet.\n`);
+        throw new Error(`Insufficient USDC balance. Need ${depositAmountFormatted} USDC.`);
       }
     } catch (error: any) {
-      if (error.message.includes("MINTER_ROLE")) {
+      if (error.message.includes("Insufficient USDC balance")) {
         throw error;
       }
-      // If minting fails, try to check if it's a standard ERC20
+      // If minting fails for other reasons
       console.log(`⚠️  Could not mint USDC: ${error.message}`);
       console.log(`   Please ensure you have sufficient USDC balance or use a faucet.\n`);
       throw new Error(`Insufficient USDC balance. Need ${depositAmountFormatted} USDC.`);
@@ -226,7 +299,7 @@ async function main() {
   console.log("📝 Creating deposit...\n");
 
   const executionFee = expandDecimals(1, 15); // 0.001 ETH (WNT)
-  
+
   // Get WNT address from DataStore
   const wntKey = keys.WNT;
   let wntAddress = await dataStoreContract.getAddress(wntKey);
@@ -259,7 +332,7 @@ async function main() {
   // Check and prepare WNT for execution fee
   const wnt = await hre.ethers.getContractAt("WNT", wntAddress);
   const wntBalance = await wnt.balanceOf(deployer);
-  
+
   if (wntBalance.lt(executionFee)) {
     // Wrap ETH to WNT if needed
     const neededWnt = executionFee.sub(wntBalance);
@@ -267,7 +340,7 @@ async function main() {
     const wrapTx = await wnt.deposit({ value: neededWnt });
     await wrapTx.wait();
     console.log(`✅ Wrapped ETH to WNT\n`);
-    
+
     // Verify we have enough now
     const finalWntBalance = await wnt.balanceOf(deployer);
     if (finalWntBalance.lt(executionFee)) {
@@ -284,14 +357,14 @@ async function main() {
   // Transfer tokens to DepositVault
   // GMX V2 requires tokens to be in DepositVault before createDeposit
   const depositVault = await get("DepositVault");
-  
+
   console.log(`📝 Transferring tokens to DepositVault...`);
-  
+
   // Transfer USDC to DepositVault
   const transferUsdcTx = await usdcContract.transfer(depositVault.address, depositAmount);
   await transferUsdcTx.wait();
   console.log(`✅ Transferred ${depositAmountFormatted} USDC to DepositVault`);
-  
+
   // Transfer WNT execution fee to DepositVault
   const transferWntTx = await wnt.transfer(depositVault.address, executionFee);
   await transferWntTx.wait();
@@ -368,4 +441,3 @@ main()
     console.error(error);
     process.exit(1);
   });
-
