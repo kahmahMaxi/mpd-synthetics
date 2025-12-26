@@ -85,10 +85,12 @@ async function main() {
   const fundingFactorKey = keys.fundingFactorKey(market.marketToken);
   const fundingFactor = await dataStoreContract.getUint(fundingFactorKey);
 
-  // Min Collateral Factor
+  // Min Collateral Factor (stored in 30 decimals)
   const minCollateralFactorKey = keys.minCollateralFactorKey(market.marketToken);
   const minCollateralFactor = await dataStoreContract.getUint(minCollateralFactorKey);
-  const maxLeverage = 100 / parseFloat(hre.ethers.utils.formatEther(minCollateralFactor));
+  // Convert from 30 decimals to percentage: (value / 10^30) * 100
+  const minCollateralFactorPercent = (parseFloat(minCollateralFactor.toString()) / 1e30) * 100;
+  const maxLeverage = minCollateralFactorPercent > 0 ? 100 / minCollateralFactorPercent : 0;
 
   console.log(`   Market Token: ${market.marketToken}`);
   console.log(`   Index Token: ${market.indexToken}`);
@@ -99,7 +101,11 @@ async function main() {
   console.log(`   Positive Position Impact:  ${positivePositionImpact.toString()}`);
   console.log(`   Negative Position Impact:  ${negativePositionImpact.toString()}`);
   console.log(`   Funding Factor:            ${fundingFactor.toString()}`);
-  console.log(`   Min Collateral Factor:     ${minCollateralFactor.toString()} (Max Leverage: ${maxLeverage}x)\n`);
+  console.log(
+    `   Min Collateral Factor:     ${minCollateralFactorPercent.toFixed(4)}% (Max Leverage: ${maxLeverage.toFixed(
+      0
+    )}x)\n`
+  );
 
   // =====================================================
   // STEP 4: Open Interest
@@ -136,7 +142,8 @@ async function main() {
           const orderType = order.numbers.orderType;
           const orderTypeName = orderTypeNames[orderType] || `Unknown(${orderType})`;
           const isLong = order.flags.isLong;
-          const sizeDeltaUsd = hre.ethers.utils.formatEther(order.numbers.sizeDeltaUsd);
+          // sizeDeltaUsd is stored in 30 decimals (decimalToFloat format)
+          const sizeDeltaUsd = parseFloat(order.numbers.sizeDeltaUsd.toString()) / 1e30;
           const collateralDeltaAmount = hre.ethers.utils.formatUnits(
             order.numbers.initialCollateralDeltaAmount,
             usdcDecimals

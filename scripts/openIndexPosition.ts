@@ -26,32 +26,61 @@ async function main() {
   // =====================================================
   // STEP 1: Parse Arguments
   // =====================================================
-  const args = process.argv.slice(2);
-  const directionArg =
-    args.find((arg) => arg.startsWith("--direction="))?.split("=")[1] || args[args.indexOf("--direction") + 1];
-  const sizeArg = args.find((arg) => arg.startsWith("--size="))?.split("=")[1] || args[args.indexOf("--size") + 1];
-  const collateralArg =
-    args.find((arg) => arg.startsWith("--collateral="))?.split("=")[1] || args[args.indexOf("--collateral") + 1];
-  const leverageArg =
-    args.find((arg) => arg.startsWith("--leverage="))?.split("=")[1] || args[args.indexOf("--leverage") + 1];
+  // Use environment variables (recommended) or try to parse from process.argv
+  // Environment variables take precedence
+  const directionArg = process.env.DIRECTION;
+  const sizeArg = process.env.SIZE;
+  const collateralArg = process.env.COLLATERAL;
+  const leverageArg = process.env.LEVERAGE;
 
-  if (!directionArg || !sizeArg || !collateralArg || !leverageArg) {
+  // If env vars not set, try to parse from command line args (after -- separator)
+  let parsedDirection = directionArg;
+  let parsedSize = sizeArg;
+  let parsedCollateral = collateralArg;
+  let parsedLeverage = leverageArg;
+
+  if (!parsedDirection || !parsedSize || !parsedCollateral || !parsedLeverage) {
+    // Try to get args after '--' separator
+    const dashDashIndex = process.argv.indexOf("--");
+    if (dashDashIndex !== -1) {
+      const args = process.argv.slice(dashDashIndex + 1);
+
+      const getArg = (name: string): string | undefined => {
+        const equalFormat = args.find((arg) => arg.startsWith(`--${name}=`));
+        if (equalFormat) {
+          return equalFormat.split("=")[1];
+        }
+        const index = args.indexOf(`--${name}`);
+        if (index !== -1 && index + 1 < args.length) {
+          return args[index + 1];
+        }
+        return undefined;
+      };
+
+      parsedDirection = parsedDirection || getArg("direction");
+      parsedSize = parsedSize || getArg("size");
+      parsedCollateral = parsedCollateral || getArg("collateral");
+      parsedLeverage = parsedLeverage || getArg("leverage");
+    }
+  }
+
+  if (!parsedDirection || !parsedSize || !parsedCollateral || !parsedLeverage) {
     console.error("❌ Missing required arguments:");
-    console.error("   --direction LONG|SHORT");
-    console.error("   --size <size in USD>");
-    console.error("   --collateral <collateral amount in USDC>");
-    console.error("   --leverage <leverage multiplier>\n");
-    console.error("Example:");
+    console.error("   Use environment variables:");
     console.error(
-      "   npx hardhat run scripts/openIndexPosition.ts --network arbitrumSepolia -- --direction LONG --size 1000 --collateral 100 --leverage 10\n"
+      "     DIRECTION=LONG|SHORT SIZE=1000 COLLATERAL=100 LEVERAGE=10 npx hardhat run scripts/openIndexPosition.ts --network arbitrumSepolia\n"
+    );
+    console.error("   Or use command-line args (after -- separator):");
+    console.error(
+      "     npx hardhat run scripts/openIndexPosition.ts --network arbitrumSepolia -- --direction LONG --size 1000 --collateral 100 --leverage 10\n"
     );
     process.exit(1);
   }
 
-  const direction = directionArg.toUpperCase();
-  const sizeUsd = parseFloat(sizeArg);
-  const collateralAmount = parseFloat(collateralArg);
-  const leverage = parseFloat(leverageArg);
+  const direction = parsedDirection.toUpperCase();
+  const sizeUsd = parseFloat(parsedSize);
+  const collateralAmount = parseFloat(parsedCollateral);
+  const leverage = parseFloat(parsedLeverage);
 
   if (direction !== "LONG" && direction !== "SHORT") {
     throw new Error(`Invalid direction: ${direction}. Must be LONG or SHORT`);
