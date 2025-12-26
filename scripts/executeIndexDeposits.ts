@@ -1,7 +1,16 @@
 /**
- * @title Execute Index Deposits
- * @notice Executes pending deposits created by the deployer for DFI/USDC index market
- * @dev This script finds all pending deposits for the deployer and executes them
+ * @title List Index Deposits
+ * @notice Lists pending deposits created by the deployer for DFI/USDC index market
+ * @dev This script finds and displays pending deposits. Manual execution is NOT supported
+ *      on testnet without GMX keeper infrastructure due to oracle timestamp requirements.
+ *
+ *      GMX V2 Oracle Execution Constraints:
+ *      - executeDeposit() requires valid oracle timestamps and block numbers
+ *      - ChainlinkPriceFeedProvider is for read-resolution, not manual execution
+ *      - Oracle prices must be recent and block-aligned
+ *      - Empty oracleTimestamps/minOracleBlockNumbers/maxOracleBlockNumbers will revert
+ *      - On testnet, execution should be deferred to GMX keepers or local fork execution
+ *
  *      Run with: npx hardhat run scripts/executeIndexDeposits.ts --network arbitrumSepolia
  */
 
@@ -10,59 +19,10 @@ import * as fs from "fs";
 import * as path from "path";
 import { getAccountDepositCount, getAccountDepositKeys } from "../utils/deposit";
 import * as keys from "../utils/keys";
-import { hashString } from "../utils/hash";
-import { getOracleParams } from "../utils/oracle";
-
-async function getOracleParamsForDeposit(
-  depositAddresses: any,
-  indexTokenAddress: string,
-  usdcAddress: string
-): Promise<{
-  tokens: string[];
-  providers: string[];
-  data: string[];
-}> {
-  // Determine which tokens we need prices for
-  const priceFeedTokens: string[] = [];
-
-  // Always need index token price (DFI) - uses IndexPriceFeed which is registered as ChainlinkPriceFeedProvider
-  priceFeedTokens.push(indexTokenAddress);
-
-  // Need USDC price if it's used in the deposit
-  if (
-    depositAddresses.initialLongToken.toLowerCase() === usdcAddress.toLowerCase() ||
-    depositAddresses.initialShortToken.toLowerCase() === usdcAddress.toLowerCase()
-  ) {
-    priceFeedTokens.push(usdcAddress);
-  }
-
-  // Use getOracleParams with priceFeedTokens
-  // This tells the Oracle to read prices directly from ChainlinkPriceFeedProvider
-  // No signatures needed - the provider reads from on-chain feeds
-  const oracleParams = await getOracleParams({
-    oracleSalt: hre.ethers.constants.HashZero,
-    minOracleBlockNumbers: [],
-    maxOracleBlockNumbers: [],
-    oracleTimestamps: [],
-    blockHashes: [],
-    signerIndexes: [],
-    tokens: [],
-    tokenOracleTypes: [],
-    precisions: [],
-    minPrices: [],
-    maxPrices: [],
-    signers: [],
-    dataStreamTokens: [],
-    dataStreamData: [],
-    priceFeedTokens: priceFeedTokens, // Both DFI and USDC use ChainlinkPriceFeedProvider
-  });
-
-  return oracleParams;
-}
 
 async function main() {
   console.log("══════════════════════════════════════════════════════════════════════");
-  console.log(" EXECUTE INDEX DEPOSITS");
+  console.log(" LIST PENDING INDEX DEPOSITS");
   console.log("══════════════════════════════════════════════════════════════════════");
   console.log(`Network: ${hre.network.name}\n`);
 
@@ -78,30 +38,8 @@ async function main() {
 
   const dataStore = await get("DataStore");
   const dataStoreContract = await hre.ethers.getContractAt("DataStore", dataStore.address);
-
-  // Get DepositHandler address from DataStore
-  // DepositHandler is stored with key: keccak256("DEPOSIT_HANDLER")
-  const depositHandlerKey = hashString("DEPOSIT_HANDLER");
-  let depositHandlerAddress = await dataStoreContract.getAddress(depositHandlerKey);
-
-  // Fallback: try to get from deployments
-  if (!depositHandlerAddress || depositHandlerAddress === hre.ethers.constants.AddressZero) {
-    try {
-      const depositHandler = await get("DepositHandler");
-      depositHandlerAddress = depositHandler.address;
-    } catch (e) {
-      throw new Error(
-        `❌ Could not find DepositHandler address. Please ensure DepositHandler is deployed and registered in DataStore.`
-      );
-    }
-  }
-
-  const depositHandlerContract = await hre.ethers.getContractAt("DepositHandler", depositHandlerAddress);
-  console.log(`✅ DepositHandler: ${depositHandlerAddress}`);
-
   const reader = await get("Reader");
   const readerContract = await hre.ethers.getContractAt("Reader", reader.address);
-  console.log(`✅ Reader: ${reader.address}`);
 
   // Load token addresses
   const indexToken = await get("IndexToken");
@@ -110,6 +48,8 @@ async function main() {
   );
   const usdcAddress = usdcConfig.address;
 
+  console.log(`✅ DataStore: ${dataStore.address}`);
+  console.log(`✅ Reader: ${reader.address}`);
   console.log(`✅ IndexToken: ${indexToken.address}`);
   console.log(`✅ USDC: ${usdcAddress}\n`);
 
@@ -119,23 +59,26 @@ async function main() {
   console.log("🔍 Finding pending deposits...\n");
 
   const depositCount = await getAccountDepositCount(dataStoreContract, deployer);
-  console.log(`   Found ${depositCount.toString()} deposit(s) for deployer\n`);
+  const depositKeys = await getAccountDepositKeys(dataStoreContract, deployer, 0, depositCount);
 
-  if (depositCount.eq(0)) {
-    console.log("✅ No pending deposits found. Nothing to execute.\n");
+  console.log(`   Found ${depositKeys.length} deposit(s) for deployer\n`);
+
+  if (depositKeys.length === 0) {
+    console.log("✅ No pending deposits found.\n");
+    console.log("══════════════════════════════════════════════════════════════════════");
+    console.log(" ✅ NO PENDING DEPOSITS");
+    console.log("══════════════════════════════════════════════════════════════════════\n");
     return;
   }
 
-  const depositKeys = await getAccountDepositKeys(dataStoreContract, deployer, 0, depositCount.toNumber());
-
   // =====================================================
-  // STEP 3: Execute Each Deposit
+  // STEP 3: Display Deposit Details
   // =====================================================
-  console.log("📝 Executing deposits...\n");
+  console.log("📝 Deposit Details:\n");
 
   for (let i = 0; i < depositKeys.length; i++) {
     const depositKey = depositKeys[i];
-    console.log(`\n────────────────────────────────────────────────────────────────────`);
+    console.log(`────────────────────────────────────────────────────────────────────`);
     console.log(` Deposit ${i + 1}/${depositKeys.length}`);
     console.log(`────────────────────────────────────────────────────────────────────`);
     console.log(`   Key: ${depositKey}\n`);
@@ -146,7 +89,7 @@ async function main() {
       const depositExists = await dataStoreContract.containsBytes32(depositListKey, depositKey);
 
       if (!depositExists) {
-        console.log(`   ⚠️  Deposit not found in DataStore (may have been executed or cancelled). Skipping.\n`);
+        console.log(`   ⚠️  Deposit not found in DataStore (may have been executed or cancelled).\n`);
         continue;
       }
 
@@ -155,7 +98,7 @@ async function main() {
 
       // Reader returns deposit with nested addresses structure
       if (!deposit.addresses.account || deposit.addresses.account === hre.ethers.constants.AddressZero) {
-        console.log(`   ⚠️  Deposit has invalid account address. Skipping.\n`);
+        console.log(`   ⚠️  Deposit has invalid account address.\n`);
         continue;
       }
 
@@ -165,87 +108,51 @@ async function main() {
       console.log(`   Short Token: ${deposit.addresses.initialShortToken}`);
       console.log(`   Long Amount: ${hre.ethers.utils.formatUnits(deposit.numbers.initialLongTokenAmount, 6)} USDC`);
       console.log(`   Short Amount: ${hre.ethers.utils.formatUnits(deposit.numbers.initialShortTokenAmount, 6)} USDC`);
-      console.log(`   Min Market Tokens: ${hre.ethers.utils.formatEther(deposit.numbers.minMarketTokens)}\n`);
-
-      // Get oracle prices
-      console.log(`   📊 Preparing oracle params...`);
-      const oracleParams = await getOracleParamsForDeposit(deposit.addresses, indexToken.address, usdcAddress);
-      console.log(`   ✅ Oracle params prepared (using ChainlinkPriceFeedProvider)\n`);
-
-      // Try static call first to check for errors
-      console.log(`   🔍 Checking if deposit can be executed (static call)...`);
-      try {
-        await depositHandlerContract.callStatic.executeDeposit(depositKey, oracleParams);
-        console.log(`   ✅ Static call successful - deposit can be executed\n`);
-      } catch (staticError: any) {
-        console.log(`   ⚠️  Static call failed: ${staticError.message}`);
-        if (staticError.reason) {
-          console.log(`   Reason: ${staticError.reason}\n`);
-        }
-        // Continue anyway - sometimes static calls fail but actual execution works
-      }
-
-      // Execute deposit with gas limit
-      console.log(`   ⚡ Executing deposit...`);
-      const gasLimit = 5_000_000; // 5M gas limit for safety
-
-      try {
-        const executeTx = await depositHandlerContract.executeDeposit(depositKey, oracleParams, {
-          gasLimit,
-        });
-
-        console.log(`   📝 Transaction sent: ${executeTx.hash}`);
-        const receipt = await executeTx.wait();
-
-        if (receipt.status === 0) {
-          throw new Error("Transaction reverted");
-        }
-
-        console.log(`   ✅ Deposit executed! (Block: ${receipt.blockNumber}, Gas: ${receipt.gasUsed.toString()})\n`);
-
-        // Check for events
-        const depositExecutedEvent = receipt.events?.find(
-          (e: any) => e.event === "DepositExecuted" || e.eventSignature?.includes("DepositExecuted")
-        );
-
-        if (depositExecutedEvent) {
-          const marketTokenAmount = depositExecutedEvent.args?.marketTokenAmount || depositExecutedEvent.args?.[1];
-          console.log(`   🎉 GM Tokens Received: ${hre.ethers.utils.formatEther(marketTokenAmount)}\n`);
-        }
-      } catch (error: any) {
-        console.error(`   ❌ Failed to execute deposit: ${error.message}\n`);
-
-        // Try to extract revert reason
-        if (error.reason) {
-          console.error(`   Reason: ${error.reason}\n`);
-        }
-        if (error.data) {
-          console.error(`   Data: ${error.data}\n`);
-        }
-
-        // Try to decode revert reason from receipt if available
-        if (error.receipt && error.receipt.status === 0) {
-          console.error(`   Transaction reverted. Check transaction on block explorer for details.\n`);
-          console.error(`   Transaction: ${error.receipt.transactionHash}\n`);
-        }
-
-        // Continue with next deposit
-        continue;
-      }
+      console.log(`   Min Market Tokens: ${hre.ethers.utils.formatEther(deposit.numbers.minMarketTokens)}`);
+      console.log(`   Execution Fee: ${hre.ethers.utils.formatEther(deposit.numbers.executionFee)} WNT\n`);
     } catch (error: any) {
-      console.error(`   ❌ Error processing deposit: ${error.message}\n`);
-      continue;
+      console.error(`   ❌ Error reading deposit: ${error.message}\n`);
     }
   }
 
+  // =====================================================
+  // STEP 4: Explain Execution Constraints
+  // =====================================================
   console.log("══════════════════════════════════════════════════════════════════════");
-  console.log(" ✅ DEPOSIT EXECUTION COMPLETE");
+  console.log(" ⚠️  MANUAL EXECUTION NOT SUPPORTED ON TESTNET");
+  console.log("══════════════════════════════════════════════════════════════════════\n");
+
+  console.log("📋 Why Manual Execution Fails:\n");
+  console.log("   GMX V2 requires oracle timestamps and block numbers for execution.");
+  console.log("   ChainlinkPriceFeedProvider is designed for read-resolution, not");
+  console.log("   manual execution. Empty oracle params will cause revert:\n");
+  console.log("   - oracleTimestamps: [] ❌");
+  console.log("   - minOracleBlockNumbers: [] ❌");
+  console.log("   - maxOracleBlockNumbers: [] ❌\n");
+
+  console.log("📋 GMX V2 Oracle Execution Constraints:\n");
+  console.log("   1. executeDeposit() requires valid oracle timestamps");
+  console.log("   2. Oracle prices must be recent and block-aligned");
+  console.log("   3. ChainlinkPriceFeedProvider cannot provide execution timestamps");
+  console.log("   4. Manual execution requires GMX keeper infrastructure\n");
+
+  console.log("✅ Recommended Approach:\n");
+  console.log("   1. Deposits are created successfully (✅ done)");
+  console.log("   2. Execution should be handled by:");
+  console.log("      - GMX testnet keepers (if available)");
+  console.log("      - Local/forked environment with mock oracles");
+  console.log("      - DataStream oracle (not ChainlinkPriceFeedProvider)");
+  console.log("   3. Verify liquidity status with verifyIndexLiquidity.ts\n");
+
+  console.log("══════════════════════════════════════════════════════════════════════");
+  console.log(" ✅ DEPOSIT LISTING COMPLETE");
   console.log("══════════════════════════════════════════════════════════════════════\n");
 
   console.log("📝 Next Steps:");
-  console.log("   1. Run verifyIndexLiquidity.ts to verify GM tokens were minted");
-  console.log("   2. Check market liquidity via Reader");
-  console.log("   3. Test opening positions in the market\n");
+  console.log("   1. Wait for GMX keeper to execute deposits (if available)");
+  console.log("   2. Or use local/forked environment for testing");
+  console.log("   3. Run verifyIndexLiquidity.ts to check if liquidity is live");
+  console.log("   4. Check GM token supply to confirm execution status\n");
 }
 
 main()

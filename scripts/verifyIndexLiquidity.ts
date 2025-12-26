@@ -1,7 +1,8 @@
 /**
  * @title Verify Index Liquidity
- * @notice Verifies that liquidity has been successfully seeded in the DFI/USDC index market
- * @dev Checks GM token supply, deployer balance, and market liquidity via Reader
+ * @notice Verifies liquidity status in the DFI/USDC index market
+ * @dev Checks GM token supply, deployer balance, and market pool balances via Reader
+ *      Works on any network and does NOT require deposit execution
  *      Run with: npx hardhat run scripts/verifyIndexLiquidity.ts --network arbitrumSepolia
  */
 
@@ -9,6 +10,7 @@ import hre from "hardhat";
 import * as fs from "fs";
 import * as path from "path";
 import { getMarketKey, getOnchainMarkets } from "../utils/market";
+import * as keys from "../utils/keys";
 
 async function main() {
   console.log("══════════════════════════════════════════════════════════════════════");
@@ -35,11 +37,12 @@ async function main() {
     fs.readFileSync(path.resolve(__dirname, "..", "config", "tokens", "usdc.json"), "utf8")
   );
   const usdcAddress = usdcConfig.address;
+  const usdcDecimals = usdcConfig.decimals || 6;
 
   console.log(`✅ DataStore: ${dataStore.address}`);
   console.log(`✅ Reader: ${reader.address}`);
   console.log(`✅ IndexToken: ${indexToken.address}`);
-  console.log(`✅ USDC: ${usdcAddress}\n`);
+  console.log(`✅ USDC: ${usdcAddress} (${usdcDecimals} decimals)\n`);
 
   // =====================================================
   // STEP 2: Find Market
@@ -94,69 +97,82 @@ async function main() {
   console.log(`   Your GM Balance: ${deployerGmBalanceFormatted} ${gmTokenSymbol}\n`);
 
   // =====================================================
-  // STEP 5: Get Market Liquidity via Reader
+  // STEP 5: Get Market Pool Balances via Reader
   // =====================================================
-  console.log("📈 Getting market liquidity information...\n");
+  console.log("📈 Getting market pool balances...\n");
+
+  let longTokenPoolAmount = hre.ethers.BigNumber.from(0);
+  let shortTokenPoolAmount = hre.ethers.BigNumber.from(0);
 
   try {
-    const readerContract = await hre.ethers.getContractAt("Reader", reader.address);
+    // Get pool amounts directly from DataStore
+    // Note: Reader.getMarketInfo requires oracle prices, which may not be available on testnet
+    // We'll read pool amounts directly from DataStore instead
 
-    // Get market details
-    const marketDetails = await readerContract.getMarket(dataStore.address, market.marketToken);
+    // Get pool amounts directly from DataStore
+    const dataStoreContract = await hre.ethers.getContractAt("DataStore", dataStore.address);
 
-    console.log(`   Index Token: ${marketDetails.indexToken}`);
-    console.log(`   Long Token: ${marketDetails.longToken}`);
-    console.log(`   Short Token: ${marketDetails.shortToken}\n`);
+    const longTokenPoolAmountKey = keys.poolAmountKey(market.marketToken, market.longToken);
+    const shortTokenPoolAmountKey = keys.poolAmountKey(market.marketToken, market.shortToken);
 
-    // Try to get market info (requires prices, so we'll skip if it fails)
-    try {
-      // For market info, we'd need prices, which is complex
-      // Instead, we'll just check the GM supply which is the key indicator
-      console.log(`   ℹ️  Market info requires oracle prices. Skipping detailed liquidity check.\n`);
-    } catch (infoError: any) {
-      // Ignore - market info requires prices
-      console.log(`   ℹ️  Market info requires oracle prices. Skipping detailed liquidity check.\n`);
-    }
+    longTokenPoolAmount = await dataStoreContract.getUint(longTokenPoolAmountKey);
+    shortTokenPoolAmount = await dataStoreContract.getUint(shortTokenPoolAmountKey);
+
+    console.log(`   Long Token Pool: ${hre.ethers.utils.formatUnits(longTokenPoolAmount, usdcDecimals)} USDC`);
+    console.log(`   Short Token Pool: ${hre.ethers.utils.formatUnits(shortTokenPoolAmount, usdcDecimals)} USDC\n`);
   } catch (error: any) {
-    console.log(`   ⚠️  Could not get detailed market info: ${error.message}\n`);
+    console.log(`   ⚠️  Could not get pool balances: ${error.message}\n`);
   }
 
   // =====================================================
-  // STEP 6: Verdict
+  // STEP 6: Verdict with Summary Table
   // =====================================================
   console.log("══════════════════════════════════════════════════════════════════════");
-  console.log(" LIQUIDITY VERIFICATION RESULT");
+  console.log(" LIQUIDITY VERIFICATION SUMMARY");
   console.log("══════════════════════════════════════════════════════════════════════\n");
 
-  if (gmTotalSupply.gt(0)) {
-    console.log("┌────────────────────────────────────────────────────────────────────┐");
-    console.log("│                                                                   │");
-    console.log("│                    LIQUIDITY LIVE ✅                              │");
-    console.log("│                                                                   │");
-    console.log("└────────────────────────────────────────────────────────────────────┘\n");
+  const isLiquidityLive = gmTotalSupply.gt(0);
 
+  // Print summary table
+  console.log("┌────────────────────────────────────────────────────────────────────┐");
+  console.log("│ LIQUIDITY STATUS                                                   │");
+  console.log("├────────────────────────────────────────────────────────────────────┤");
+  console.log(`│ GM Token Supply:     ${gmTotalSupplyFormatted.padEnd(45)} ${gmTokenSymbol} │`);
+  console.log(`│ Deployer Balance:   ${deployerGmBalanceFormatted.padEnd(45)} ${gmTokenSymbol} │`);
+  console.log(
+    `│ Long Token Pool:    ${hre.ethers.utils.formatUnits(longTokenPoolAmount, usdcDecimals).padEnd(45)} USDC │`
+  );
+  console.log(
+    `│ Short Token Pool:    ${hre.ethers.utils.formatUnits(shortTokenPoolAmount, usdcDecimals).padEnd(45)} USDC │`
+  );
+  console.log("├────────────────────────────────────────────────────────────────────┤");
+  if (isLiquidityLive) {
+    console.log("│ STATUS:             LIQUIDITY LIVE ✅                              │");
+  } else {
+    console.log("│ STATUS:             LIQUIDITY NOT LIVE ❌                         │");
+  }
+  console.log("└────────────────────────────────────────────────────────────────────┘\n");
+
+  if (isLiquidityLive) {
     console.log("✅ GM tokens have been minted successfully!");
     console.log(`✅ Total Supply: ${gmTotalSupplyFormatted} ${gmTokenSymbol}`);
-    console.log(`✅ Your Balance: ${deployerGmBalanceFormatted} ${gmTokenSymbol}\n`);
+    console.log(`✅ Your Balance: ${deployerGmBalanceFormatted} ${gmTokenSymbol}`);
+    console.log(`✅ Long Pool: ${hre.ethers.utils.formatUnits(longTokenPoolAmount, usdcDecimals)} USDC`);
+    console.log(`✅ Short Pool: ${hre.ethers.utils.formatUnits(shortTokenPoolAmount, usdcDecimals)} USDC\n`);
 
     console.log("📝 Next Steps:");
     console.log("   1. The market is now ready for trading");
     console.log("   2. Users can open positions using the DFI/USDC market");
     console.log("   3. Monitor market liquidity and adjust as needed\n");
   } else {
-    console.log("┌────────────────────────────────────────────────────────────────────┐");
-    console.log("│                                                                   │");
-    console.log("│                 LIQUIDITY NOT LIVE ❌                             │");
-    console.log("│                                                                   │");
-    console.log("└────────────────────────────────────────────────────────────────────┘\n");
-
     console.log("❌ GM tokens have not been minted yet.");
     console.log("❌ Total Supply: 0 (deposits may not have been executed)\n");
 
     console.log("📝 Next Steps:");
-    console.log("   1. Run executeIndexDeposits.ts to execute pending deposits");
-    console.log("   2. Wait for keeper to execute deposits (if using automated keepers)");
-    console.log("   3. Re-run this script to verify liquidity\n");
+    console.log("   1. Deposits are created but not yet executed");
+    console.log("   2. Execution requires GMX keeper infrastructure or local fork");
+    console.log("   3. Check pending deposits with executeIndexDeposits.ts");
+    console.log("   4. Re-run this script after deposits are executed\n");
   }
 
   console.log("══════════════════════════════════════════════════════════════════════\n");
