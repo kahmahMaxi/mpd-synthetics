@@ -14,7 +14,7 @@ import { hashString } from "../utils/hash";
 import { getOracleParams } from "../utils/oracle";
 
 async function getOracleParamsForDeposit(
-  deposit: any,
+  depositAddresses: any,
   indexTokenAddress: string,
   usdcAddress: string
 ): Promise<{
@@ -30,8 +30,8 @@ async function getOracleParamsForDeposit(
 
   // Need USDC price if it's used in the deposit
   if (
-    deposit.initialLongToken.toLowerCase() === usdcAddress.toLowerCase() ||
-    deposit.initialShortToken.toLowerCase() === usdcAddress.toLowerCase()
+    depositAddresses.initialLongToken.toLowerCase() === usdcAddress.toLowerCase() ||
+    depositAddresses.initialShortToken.toLowerCase() === usdcAddress.toLowerCase()
   ) {
     priceFeedTokens.push(usdcAddress);
   }
@@ -141,60 +141,99 @@ async function main() {
     console.log(`   Key: ${depositKey}\n`);
 
     try {
-      // Get deposit details
-      const deposit = await readerContract.getDeposit(dataStore.address, depositKey);
+      // Check if deposit exists in DataStore DEPOSIT_LIST
+      const depositListKey = keys.DEPOSIT_LIST;
+      const depositExists = await dataStoreContract.containsBytes32(depositListKey, depositKey);
 
-      if (!deposit.account || deposit.account === hre.ethers.constants.AddressZero) {
-        console.log(`   ⚠️  Deposit not found or already executed. Skipping.\n`);
+      if (!depositExists) {
+        console.log(`   ⚠️  Deposit not found in DataStore (may have been executed or cancelled). Skipping.\n`);
         continue;
       }
 
-      console.log(`   Account: ${deposit.account}`);
-      console.log(`   Market: ${deposit.market}`);
-      console.log(`   Long Token: ${deposit.initialLongToken}`);
-      console.log(`   Short Token: ${deposit.initialShortToken}`);
-      console.log(`   Long Amount: ${hre.ethers.utils.formatUnits(deposit.initialLongTokenAmount, 6)} USDC`);
-      console.log(`   Short Amount: ${hre.ethers.utils.formatUnits(deposit.initialShortTokenAmount, 6)} USDC`);
-      console.log(`   Min Market Tokens: ${hre.ethers.utils.formatEther(deposit.minMarketTokens)}\n`);
+      // Get deposit details
+      const deposit = await readerContract.getDeposit(dataStore.address, depositKey);
+
+      // Reader returns deposit with nested addresses structure
+      if (!deposit.addresses.account || deposit.addresses.account === hre.ethers.constants.AddressZero) {
+        console.log(`   ⚠️  Deposit has invalid account address. Skipping.\n`);
+        continue;
+      }
+
+      console.log(`   Account: ${deposit.addresses.account}`);
+      console.log(`   Market: ${deposit.addresses.market}`);
+      console.log(`   Long Token: ${deposit.addresses.initialLongToken}`);
+      console.log(`   Short Token: ${deposit.addresses.initialShortToken}`);
+      console.log(`   Long Amount: ${hre.ethers.utils.formatUnits(deposit.numbers.initialLongTokenAmount, 6)} USDC`);
+      console.log(`   Short Amount: ${hre.ethers.utils.formatUnits(deposit.numbers.initialShortTokenAmount, 6)} USDC`);
+      console.log(`   Min Market Tokens: ${hre.ethers.utils.formatEther(deposit.numbers.minMarketTokens)}\n`);
 
       // Get oracle prices
       console.log(`   📊 Preparing oracle params...`);
-      const oracleParams = await getOracleParamsForDeposit(deposit, indexToken.address, usdcAddress);
+      const oracleParams = await getOracleParamsForDeposit(deposit.addresses, indexToken.address, usdcAddress);
       console.log(`   ✅ Oracle params prepared (using ChainlinkPriceFeedProvider)\n`);
+
+      // Try static call first to check for errors
+      console.log(`   🔍 Checking if deposit can be executed (static call)...`);
+      try {
+        await depositHandlerContract.callStatic.executeDeposit(depositKey, oracleParams);
+        console.log(`   ✅ Static call successful - deposit can be executed\n`);
+      } catch (staticError: any) {
+        console.log(`   ⚠️  Static call failed: ${staticError.message}`);
+        if (staticError.reason) {
+          console.log(`   Reason: ${staticError.reason}\n`);
+        }
+        // Continue anyway - sometimes static calls fail but actual execution works
+      }
 
       // Execute deposit with gas limit
       console.log(`   ⚡ Executing deposit...`);
       const gasLimit = 5_000_000; // 5M gas limit for safety
 
-      const executeTx = await depositHandlerContract.executeDeposit(depositKey, oracleParams, {
-        gasLimit,
-      });
+      try {
+        const executeTx = await depositHandlerContract.executeDeposit(depositKey, oracleParams, {
+          gasLimit,
+        });
 
-      console.log(`   📝 Transaction sent: ${executeTx.hash}`);
-      const receipt = await executeTx.wait();
-      console.log(`   ✅ Deposit executed! (Block: ${receipt.blockNumber}, Gas: ${receipt.gasUsed.toString()})\n`);
+        console.log(`   📝 Transaction sent: ${executeTx.hash}`);
+        const receipt = await executeTx.wait();
 
-      // Check for events
-      const depositExecutedEvent = receipt.events?.find(
-        (e: any) => e.event === "DepositExecuted" || e.eventSignature?.includes("DepositExecuted")
-      );
+        if (receipt.status === 0) {
+          throw new Error("Transaction reverted");
+        }
 
-      if (depositExecutedEvent) {
-        const marketTokenAmount = depositExecutedEvent.args?.marketTokenAmount || depositExecutedEvent.args?.[1];
-        console.log(`   🎉 GM Tokens Received: ${hre.ethers.utils.formatEther(marketTokenAmount)}\n`);
+        console.log(`   ✅ Deposit executed! (Block: ${receipt.blockNumber}, Gas: ${receipt.gasUsed.toString()})\n`);
+
+        // Check for events
+        const depositExecutedEvent = receipt.events?.find(
+          (e: any) => e.event === "DepositExecuted" || e.eventSignature?.includes("DepositExecuted")
+        );
+
+        if (depositExecutedEvent) {
+          const marketTokenAmount = depositExecutedEvent.args?.marketTokenAmount || depositExecutedEvent.args?.[1];
+          console.log(`   🎉 GM Tokens Received: ${hre.ethers.utils.formatEther(marketTokenAmount)}\n`);
+        }
+      } catch (error: any) {
+        console.error(`   ❌ Failed to execute deposit: ${error.message}\n`);
+
+        // Try to extract revert reason
+        if (error.reason) {
+          console.error(`   Reason: ${error.reason}\n`);
+        }
+        if (error.data) {
+          console.error(`   Data: ${error.data}\n`);
+        }
+
+        // Try to decode revert reason from receipt if available
+        if (error.receipt && error.receipt.status === 0) {
+          console.error(`   Transaction reverted. Check transaction on block explorer for details.\n`);
+          console.error(`   Transaction: ${error.receipt.transactionHash}\n`);
+        }
+
+        // Continue with next deposit
+        continue;
       }
     } catch (error: any) {
-      console.error(`   ❌ Failed to execute deposit: ${error.message}\n`);
-
-      // Try to extract revert reason
-      if (error.reason) {
-        console.error(`   Reason: ${error.reason}\n`);
-      }
-      if (error.data) {
-        console.error(`   Data: ${error.data}\n`);
-      }
-
-      // Continue with next deposit
+      console.error(`   ❌ Error processing deposit: ${error.message}\n`);
       continue;
     }
   }
